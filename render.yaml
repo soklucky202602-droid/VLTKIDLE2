@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: vltkidle2
+    runtime: static
+    buildCommand: ""
+    staticPublishPath: .
+    autoDeploy: true
