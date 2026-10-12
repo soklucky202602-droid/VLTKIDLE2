@@ -1,62 +1,79 @@
-/* VLTKIDLE2 — login presentation layer. Never replaces auth handlers. */
+/* VLTKIDLE2 — login presentation layer. Auth logic stays untouched. */
 (function(){
   'use strict';
-  var active=false, shell=null;
-  function isLoginCandidate(root){
-    if(!root||root===document.body||root.id==='app'||(root.closest&&root.closest('.vltk-login-shell')))return null;
-    var tag=(root.tagName||'').toLowerCase();
-    var cls=String(root.className||'').toLowerCase();
-    var id=String(root.id||'').toLowerCase();
-    if(tag!=='form'&&!/(auth|login|signin|sign-in|dangnhap|dang-nhap)/.test(cls+' '+id))return null;
-    var pw=root.querySelector&&root.querySelector('input[type="password"]');
-    if(!pw)return null;
-    var fields=root.querySelectorAll('input');
-    if(fields.length<2)return null;
-    var text=(root.textContent||'').toLowerCase();
-    var hints=['đăng nhập','dang nhap','tài khoản','tai khoan','mật khẩu','mat khau','login'];
-    return hints.some(function(x){return text.indexOf(x)>=0})?root:null;
+  var active=false, shell=null, moved=null, originalParent=null, originalNext=null;
+  function textOf(el){return String(el&&el.textContent||'').toLowerCase();}
+  function looksLikeLogin(el){
+    if(!el||el===document.body||el.id==='app'||(el.closest&&el.closest('.vltk-login-shell')))return false;
+    var inputs=el.querySelectorAll&&el.querySelectorAll('input');
+    if(!inputs||inputs.length<2)return false;
+    if(!el.querySelector('input[type="password"]'))return false;
+    var t=textOf(el);
+    return /đăng nhập|dang nhap|tài khoản|tai khoan|mật khẩu|mat khau|login|đăng ký|dang ky/.test(t);
   }
-  function decorate(form){
-    if(active||!form)return;
+  function findLoginRoot(){
+    var pw=document.querySelectorAll('input[type="password"]');
+    for(var i=0;i<pw.length;i++){
+      var n=pw[i];
+      while(n&&n!==document.body&&n!==document.documentElement){
+        if(looksLikeLogin(n))return n;
+        n=n.parentElement;
+      }
+    }
+    return null;
+  }
+  function decorate(root){
+    if(active||!root)return;
     active=true;
+    moved=root;
+    originalParent=root.parentNode;
+    originalNext=root.nextSibling;
     document.body.classList.add('vltk-login-active');
     var card=document.createElement('div');
     card.className='vltk-login-shell';
     card.innerHTML='<div class="vltk-login-card">'+
-      '<div class="vltk-login-brand"><span class="seal">武</span><h1>VÕ LÂM IDLE</h1><p>NHẤT NIỆM GIANG HỒ · VẠN DẶM ĐỒNG HÀNH</p></div>'+
+      '<div class="vltk-login-brand"><div class="seal">武</div><h1>VÕ LÂM IDLE</h1><p>NHẤT NIỆM GIANG HỒ · VẠN DẶM ĐỒNG HÀNH</p></div>'+
       '<div class="vltk-login-divider"></div><div class="vltk-login-mount"></div>'+
       '<div class="vltk-login-foot">GIANG HỒ MỞ CỬA <b>•</b> HÀNH TẨU BẰNG TÂM</div></div>';
     document.body.appendChild(card); shell=card;
-    var mount=card.querySelector('.vltk-login-mount');
-    mount.appendChild(form);
-    form.classList.add('vltk-auth-form');
-    var inputs=form.querySelectorAll('input');
-    inputs.forEach(function(input,i){
-      var field=document.createElement('div'); field.className='vltk-field';
-      input.parentNode.insertBefore(field,input); field.appendChild(input);
-      if(!input.getAttribute('placeholder')) input.placeholder=i===0?'Nhập tên tài khoản':'Nhập mật khẩu';
-      var label=document.createElement('label'); label.textContent=i===0?'Tài khoản':'Mật khẩu';
-      field.insertBefore(label,input);
-    });
-    var submit=form.querySelector('button[type="submit"],input[type="submit"]');
-    if(submit){submit.classList.add('vltk-primary'); if(submit.tagName==='BUTTON')submit.textContent='ĐĂNG NHẬP GIANG HỒ';}
-    form.querySelectorAll('button:not([type="submit"]),a').forEach(function(el){el.classList.add('vltk-secondary');});
-    var observer=new MutationObserver(function(){
-      if(!document.body.contains(form)){
-        document.body.classList.remove('vltk-login-active');
-        if(shell&&shell.parentNode)shell.parentNode.removeChild(shell);
-        active=false;shell=null;observer.disconnect();
+    card.querySelector('.vltk-login-mount').appendChild(root);
+    root.classList.add('vltk-auth-form');
+    var inputs=root.querySelectorAll('input');
+    for(var i=0;i<inputs.length;i++){
+      var input=inputs[i];
+      if(input.type==='hidden'||input.type==='submit'||input.type==='button'||input.type==='checkbox')continue;
+      var field=input.closest('.vltk-field');
+      if(!field){
+        field=document.createElement('div'); field.className='vltk-field';
+        input.parentNode.insertBefore(field,input); field.appendChild(input);
       }
-    });
-    observer.observe(document.body,{childList:true,subtree:true});
+      if(!input.getAttribute('placeholder')) input.placeholder=input.type==='password'?'Nhập mật khẩu':'Nhập tên tài khoản';
+      if(!field.querySelector('label')){
+        var label=document.createElement('label'); label.textContent=input.type==='password'?'MẬT KHẨU':'TÀI KHOẢN'; field.insertBefore(label,input);
+      }
+    }
+    var submit=root.querySelector('button[type="submit"],input[type="submit"],button');
+    if(submit){submit.classList.add('vltk-primary'); if(submit.tagName==='BUTTON'&&!/đăng ký|dang ky/i.test(submit.textContent||''))submit.textContent='ĐĂNG NHẬP GIANG HỒ';}
+    var all=root.querySelectorAll('button,a');
+    for(var j=0;j<all.length;j++)if(all[j]!==submit)all[j].classList.add('vltk-secondary');
+  }
+  function cleanup(){
+    if(!active)return;
+    document.body.classList.remove('vltk-login-active');
+    if(shell&&shell.parentNode)shell.parentNode.removeChild(shell);
+    active=false;shell=null;moved=null;originalParent=null;originalNext=null;
   }
   function scan(){
     if(active)return;
-    var forms=document.querySelectorAll('form');
-    for(var i=0;i<forms.length;i++){var c=isLoginCandidate(forms[i]);if(c){decorate(c);return;}}
-    var named=document.querySelectorAll('[id],[class]');
-    for(var j=0;j<named.length;j++){var n=isLoginCandidate(named[j]);if(n){decorate(n);return;}}
+    var root=findLoginRoot();
+    if(root)decorate(root);
   }
   scan();
-  new MutationObserver(scan).observe(document.body,{childList:true,subtree:true});
+  new MutationObserver(function(){
+    if(active){
+      if(moved&&!document.body.contains(moved))cleanup();
+      return;
+    }
+    scan();
+  }).observe(document.body,{childList:true,subtree:true});
 })();
