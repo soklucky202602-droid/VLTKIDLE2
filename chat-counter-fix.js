@@ -1,56 +1,20 @@
-/* Keep the main chat badge scoped to World chat only. */
+/* World chat unread badge: mirror the app's own World unread counter. */
 (function(){
-  function num(el){
-    if(!el) return 0;
-    var v=parseInt((el.textContent||'').trim(),10);
-    return isFinite(v)?v:0;
-  }
-
-  var lastRawTotal=null;
-  var skipNextMutation=false;
-
-  function syncWorldChatBadge(){
+  function sync(){
     var badge=document.getElementById('chatN');
-    var party=document.getElementById('chatPN');
-    if(!badge) return;
-
-    if(lastRawTotal===null) lastRawTotal=num(badge);
-    var world=Math.max(0,lastRawTotal-num(party));
-    var value=world?(world>9?'9+':String(world)):'';
-
-    if(badge.textContent===value) return;
-    skipNextMutation=true;
-    badge.textContent=value;
+    var world=document.querySelector('#u20ct [data-lt="chat"] .ctn');
+    if(!badge || !world) return;
+    var value=(world.textContent||'').trim();
+    if(badge.textContent!==value) badge.textContent=value;
   }
 
   function boot(){
-    var badge=document.getElementById('chatN');
-    if(badge) lastRawTotal=num(badge);
-    syncWorldChatBadge();
-
-    var observer=new MutationObserver(function(){
-      if(skipNextMutation){
-        skipNextMutation=false;
-        return;
-      }
-
-      var current=document.getElementById('chatN');
-      if(current) lastRawTotal=num(current);
-      syncWorldChatBadge();
-    });
-
-    observer.observe(document.body,{subtree:true,childList:true,characterData:true});
-    setInterval(function(){
-      var current=document.getElementById('chatN');
-      if(current){
-        var value=num(current);
-        var displayed=(current.textContent||'').trim();
-        var displayedNum=displayed==='9+'?10:num(current);
-        var expected=lastRawTotal===null?value:Math.max(0,lastRawTotal-num(document.getElementById('chatPN')));
-        if(value!==lastRawTotal && displayedNum!==expected) lastRawTotal=value;
-      }
-      syncWorldChatBadge();
-    },500);
+    sync();
+    var panel=document.getElementById('u20ct');
+    if(panel){
+      new MutationObserver(sync).observe(panel,{subtree:true,childList:true,characterData:true});
+    }
+    setInterval(sync,250);
   }
 
   if(document.readyState==='loading'){
