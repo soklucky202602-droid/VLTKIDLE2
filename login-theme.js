@@ -2,11 +2,11 @@
 (function(){
   'use strict';
   var active=false,shell=null,root=null;
-  function txt(el){return String(el&&el.textContent||'').toLowerCase()}
+  function txt(el){return String(el&&el.textContent||'').toLowerCase().replace(/\s+/g,' ').trim()}
   function isCandidate(el){
     if(!el||el===document.body||el.id==='app'||(el.closest&&el.closest('.vltk-login-shell')))return false;
     var ins=el.querySelectorAll&&el.querySelectorAll('input');
-    return !!(ins&&ins.length>=2&&el.querySelector('input[type="password"]')&&/đăng nhập|tài khoản|mật khẩu|login/.test(txt(el)));
+    return !!(ins&&ins.length>=2&&el.querySelector('input[type="password"])&&/đăng nhập|tài khoản|mật khẩu|login/.test(txt(el)));
   }
   function findRoot(){
     var pw=document.querySelectorAll('input[type="password"]');
@@ -16,7 +16,6 @@
     }
     return null;
   }
-  function move(el,to){if(el&&to)to.appendChild(el)}
   function decorate(r){
     if(active||!r)return;
     active=true;root=r;document.body.classList.add('vltk-login-active');
@@ -43,17 +42,24 @@
       var parentText=(checks[j].parentElement&&checks[j].parentElement.textContent||'').replace(/\s+/g,' ').trim();
       cbox.appendChild(document.createTextNode(parentText.replace(/^(☐|□)\s*/,'').replace(/^(true|false)\s*/i,'')|| (j===0?'Hiện mật mã':'Nhớ tài khoản')));opts.appendChild(cbox);
     }
-    var buttons=r.querySelectorAll('button,input[type="submit"],a');
-    for(var k=0;k<buttons.length;k++){
-      var b=buttons[k];
-      if(!b||b===checks[k])continue;
-      var label=txt(b);
-      if(b.tagName==='A'&&!/đăng ký|dang ky|đăng nhập|dang nhap|login/.test(label))continue;
-      b.classList.add(/đăng ký|dang ky/.test(label)?'vltk-secondary':'vltk-primary');
-      if(b.classList.contains('vltk-primary')&&b.tagName==='BUTTON')b.textContent='ĐĂNG NHẬP GIANG HỒ';
-      actions.appendChild(b);
+    var controls=r.querySelectorAll('button,input[type="submit"],a'),loginAdded=false,registerAdded=false;
+    for(var k=0;k<controls.length;k++){
+      var b=controls[k]; if(!b)continue;
+      var label=txt(b), isReg=/đăng ký|dang ky|register|sign up/.test(label), isLogin=/đăng nhập|dang nhap|login|sign in/.test(label);
+      if(isReg){
+        if(registerAdded)continue;
+        registerAdded=true;b.classList.add('vltk-secondary');actions.appendChild(b);continue;
+      }
+      if(b.tagName==='A'&&!isLogin)continue;
+      if(!loginAdded){
+        loginAdded=true;b.classList.add('vltk-primary');
+        if(b.tagName==='BUTTON')b.textContent='ĐĂNG NHẬP GIANG HỒ';
+        actions.appendChild(b);
+      }else{
+        /* The legacy login screen can expose several submit controls. Keep only the real first action. */
+        b.classList.add('vltk-login-extra-hidden');
+      }
     }
-    /* Hide only the old visual wrapper; moved controls remain fully functional. */
     r.classList.add('vltk-login-source');
   }
   function cleanup(){
