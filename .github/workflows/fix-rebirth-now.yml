@@ -12,53 +12,48 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 2
-      - name: Restore app.js from the pre-placeholder commit
+      - name: Restore app.js from before the temporary placeholder
         run: git checkout HEAD^ -- app.js
-      - name: Patch rebirth rules in app.js
+      - name: Patch app.js directly inside its closure
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          p = Path('app.js')
-          s = p.read_text(encoding='utf-8')
-          old = 'v0=()=>typeof o<"u"&&o&&o.rw&&o.rw.stat?Math.min(10,o.rw.stat.reborn||0):0,T3=200,OA=()=>o.lvl+T3*v0(),'
-          new = 'v0=()=>typeof o<"u"&&o&&o.rw&&o.rw.stat?Math.max(0,Math.min(50,o.rw.stat.reborn||0)):0,T3=200,OA=()=>o.lvl,'
-          assert old in s
-          s = s.replace(old, new, 1)
-          start = s.index('R5=function(){')
-          end = s.index(',QD=function', start)
-          new_block = '''R5=function(){return{hp:1,dmg:1}},mi=function(){const A=o.rw&&o.rw.stat&&o.rw.stat.reborn||0;return{xp:.2*A,dmg:.1*A}},zD=async function(){const A=Q(),n=A.stat.reborn|0,t=n+1,e=RB_REQ(n);if(t>REBORN_MAX||o.lvl<e)return;const a=await dt(`Chuyển sinh lần ${t}: về cấp 1, giữ nguyên trang bị và toàn bộ võ công.\\n\\nNhận ${t*50} điểm tiềm năng và +1 điểm Tâm pháp.\\nThưởng vĩnh viễn +${t*20}% kinh nghiệm, +${t*10}% sát thương.\\n\\nTiếp tục?`);if(!a)return;A.stat.reborn=t,o.lvl=1,o.xp=0,o.attr={str:0,dex:0,vit:0,eng:0},o.attrPts=t*50,o.stage=1,o.wave=1,o.push=!0,o.tpPend=(o.tpPend|0)+1,c.tower=null,c.enemies=[],c.dirty=!0,c.zoneShown=null,M(`<b class="up">Chuyển sinh lần ${t}!</b> +${t*20}% kinh nghiệm, +${t*10}% sát thương`),ln(),t0(!0),F(),B()}'''
-          s = s[:start] + new_block + s[end:]
-          old = 'JD=function(A=Q()){const n=mi(),t=A.stat.reborn>=P2;return`<p class="desc">Đạt cấp ${gt}: về cấp 1, giữ trang bị; <b>mỗi lần chuyển sinh +${T3} cấp khi xét yêu cầu trang bị</b> (vd cấp 10 chuyển sinh 1 = cấp ${10+T3}: mặc được mọi trang bị); võ công 90 học không cần Bí Kíp 90; mỗi lần +10% tỉ lệ rơi đồ; mốc cấp nhận lại mỗi vòng; tẩy toàn bộ điểm tiềm năng và kỹ năng cũ, nhận cố định <b>${X5} điểm tiềm năng + ${U5} điểm kỹ năng</b>; mỗi lần quái mạnh thêm (+25% máu, +15% sát thương), +10% sát thương nhưng <b>kinh nghiệm nhận được −10%</b> mỗi lần (tối đa ${P2} lần).</p>\n      <p>Đã chuyển sinh: <b>${A.stat.reborn}</b> lần · hiện ${Math.round(n.xp*100)}% kinh nghiệm, +${Math.round(n.dmg*100)}% sát thương, kháng tất cả +${S8*A.stat.reborn}%, kháng tối đa ${E8+I8*A.stat.reborn}% (mỗi lần +${S8}% kháng tất cả, +${I8}% kháng tối đa) · độ khó: quái ×${R5().hp.toFixed(2)} máu, ×${R5().dmg.toFixed(2)} sát thương.</p>\n      <div class="btnrow"><button class="btn red" id="gReborn" ${o.lvl>=gt&&!t?"":"disabled"}>${t?"Đã chuyển sinh tối đa":o.lvl>=gt?"Chuyển sinh":`Cần cấp ${gt}`}</button></div>`}'
-          new = 'JD=function(A=Q()){const n=mi(),t=A.stat.reborn|0,e=t+1,a=RB_REQ(t),i=t>=REBORN_MAX;return`<p class="desc">Đạt <b>cấp ${a}</b>: về cấp 1, giữ nguyên trang bị và toàn bộ võ công. Mỗi lần nhận <b>${e*50} điểm tiềm năng</b> và +1 điểm Tâm pháp. Thưởng vĩnh viễn <b>+${e*20}% kinh nghiệm, +${e*10}% sát thương</b>. Tối đa ${REBORN_MAX} lần chuyển sinh.</p>\n      <p>Đã chuyển sinh: <b>${t}</b> lần · hiện <b>+${Math.round(n.xp*100)}% kinh nghiệm</b>, <b>+${Math.round(n.dmg*100)}% sát thương</b>${i?" · đã đạt tối đa CS50":" · lần tiếp theo: CS "+e+" · cần cấp "+a}.</p>\n      <div class="btnrow"><button class="btn red" id="gReborn" ${o.lvl>=a&&!i?"":"disabled"}>${i?"Đã chuyển sinh tối đa":o.lvl>=a?"Chuyển sinh":`Cần cấp ${a}`}</button></div>`}'
-          assert old in s
-          s = s.replace(old, new, 1)
-          old = 'Rd=function(){o.fac&&J(`<h3>Chuyển sinh <small>${Q().stat.reborn}/${P2} lần</small></h3>${JD()}`'
-          new = 'Rd=function(){o.fac&&J(`<h3>Chuyển sinh <small>${Q().stat.reborn}/${REBORN_MAX} lần</small></h3>${JD()}`'
-          assert old in s
-          s = s.replace(old, new, 1)
-          old = 'Yd=1800,Fd=300,gt=200,P2=10,n1=10,'
-          new = 'Yd=1800,Fd=300,REBORN_LV=120,REBORN_STEP=20,REBORN_MAX=50,RB_REQ=s=>REBORN_LV+(s|0)*REBORN_STEP,gt=200,P2=10,n1=10,'
-          assert old in s
-          s = s.replace(old, new, 1)
-          s = s.replace('o.lvl>=gt&&Q().stat.reborn<P2?" on":""','o.lvl>=RB_REQ(Q().stat.reborn)&&Q().stat.reborn<REBORN_MAX?" on":""')
-          if 'C(G(n,"manashield_p"),0,90)' in s:
-              s = s.replace('C(G(n,"manashield_p"),0,90)','C(G(n,"manashield_p"),0,99)',1)
-          p.write_text(s, encoding='utf-8')
+          p=Path('app.js')
+          s=p.read_text(encoding='utf-8')
+          s=s.replace('Math.min(10,o.rw.stat.reborn||0)', 'Math.max(0,Math.min(50,o.rw.stat.reborn||0))', 1)
+          s=s.replace('OA=()=>o.lvl+T3*v0()', 'OA=()=>o.lvl', 1)
+          start=s.index('R5=function(){')
+          end=s.index(',QD=function', start)
+          s=s[:start]+'''R5=function(){return{hp:1,dmg:1}},mi=function(){const A=o.rw&&o.rw.stat&&o.rw.stat.reborn||0;return{xp:.2*A,dmg:.1*A}},zD=async function(){const A=Q(),n=A.stat.reborn|0,t=n+1,e=RB_REQ(n);if(t>REBORN_MAX||o.lvl<e)return;const a=await dt(`Chuyển sinh lần ${t}: về cấp 1, giữ nguyên trang bị và toàn bộ võ công.\\n\\nNhận ${t*50} điểm tiềm năng và +1 điểm Tâm pháp.\\nThưởng vĩnh viễn +${t*20}% kinh nghiệm, +${t*10}% sát thương.\\n\\nTiếp tục?`);if(!a)return;A.stat.reborn=t,o.lvl=1,o.xp=0,o.attr={str:0,dex:0,vit:0,eng:0},o.attrPts=t*50,o.stage=1,o.wave=1,o.push=!0,o.tpPend=(o.tpPend|0)+1,c.tower=null,c.enemies=[],c.dirty=!0,c.zoneShown=null,M(`<b class="up">Chuyển sinh lần ${t}!</b> +${t*20}% kinh nghiệm, +${t*10}% sát thương`),ln(),t0(!0),F(),B()}'''+s[end:]
+          start=s.index('JD=function')
+          end=s.index(',ne=function', start)
+          jd='''JD=function(A=Q()){const n=mi(),t=A.stat.reborn|0,e=t+1,a=RB_REQ(t),i=t>=REBORN_MAX;return`<p class="desc">Đạt <b>cấp ${a}</b>: về cấp 1, giữ nguyên trang bị và toàn bộ võ công. Mỗi lần nhận <b>${e*50} điểm tiềm năng</b> và +1 điểm Tâm pháp. Thưởng vĩnh viễn <b>+${e*20}% kinh nghiệm, +${e*10}% sát thương</b>. Tối đa ${REBORN_MAX} lần chuyển sinh.</p>\\n      <p>Đã chuyển sinh: <b>${t}</b> lần · hiện <b>+${Math.round(n.xp*100)}% kinh nghiệm</b>, <b>+${Math.round(n.dmg*100)}% sát thương</b>${i?" · đã đạt tối đa CS50":" · lần tiếp theo: CS "+e+" · cần cấp "+a}.</p>\\n      <div class="btnrow"><button class="btn red" id="gReborn" ${o.lvl>=a&&!i?"":"disabled"}>${i?"Đã chuyển sinh tối đa":o.lvl>=a?"Chuyển sinh":`Cần cấp ${a}`}</button></div>`}'''
+          s=s[:start]+jd+s[end:]
+          start=s.index('Rd=function')
+          end=s.index(',za=', start)
+          s=s[:start]+'Rd=function(){o.fac&&J(`<h3>Chuyển sinh <small>${Q().stat.reborn}/${REBORN_MAX} lần</small></h3>${JD()}`,()=>{const A=u("#gReborn");A&&(A.onclick=zD)})}'+s[end:]
+          marker='Yd=1800,Fd=300,gt=200,P2=10,n1=10,'
+          if marker not in s:
+              marker='Yd=1800,Fd=300,gt=200,'
+          assert marker in s
+          s=s.replace(marker, 'Yd=1800,Fd=300,REBORN_LV=120,REBORN_STEP=20,REBORN_MAX=50,RB_REQ=s=>REBORN_LV+(s|0)*REBORN_STEP,gt=200,P2=10,n1=10,', 1)
+          s=s.replace('o.lvl>=gt&&Q().stat.reborn<P2?" on":""','o.lvl>=RB_REQ(Q().stat.reborn)&&Q().stat.reborn<REBORN_MAX?" on":""')
+          s=s.replace('C(G(n,"manashield_p"),0,90)','C(G(n,"manashield_p"),0,99)',1)
+          p.write_text(s,encoding='utf-8')
           PY
           node --check app.js
           grep -F 'REBORN_LV=120,REBORN_STEP=20,REBORN_MAX=50' app.js
           grep -F 'mi=function(){const A=o.rw&&o.rw.stat&&o.rw.stat.reborn||0;return{xp:.2*A,dmg:.1*A}}' app.js
-      - name: Remove obsolete external rebirth patch
+      - name: Remove obsolete external patch
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          p = Path('index.html')
-          s = p.read_text(encoding='utf-8')
-          s = s.replace('<script src="rebirth-vltkzip.js?v=4"></script>', '')
-          p.write_text(s, encoding='utf-8')
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8').replace('<script src="rebirth-vltkzip.js?v=4"></script>','')
+          p.write_text(s,encoding='utf-8')
           PY
           git rm -f rebirth-vltkzip.js
-      - name: Commit and remove temporary workflow
+      - name: Commit and remove this temporary workflow
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
