@@ -25,41 +25,42 @@ jobs:
           s=s.replace('$s("shard",A)*Ue("shard")*t)','$s("shard",A)*Ue("shard")*t*(SVR.drop||1)*(c.tower?3:1))',1)
           if s.count('SVR.drop||1')<2: raise SystemExit('drop multiplier missing')
 
-          # LD() is the actual tower wave spawn/reset function in the bundle.
+          # Keep the current tower wave alive while any enemy still has HP.
           start=s.find('LD=function(){')
-          if start < 0:
-            raise SystemExit('LD function not found')
+          if start < 0: raise SystemExit('LD function not found')
           reset=s.find('c.enemies=[]',start)
-          if reset < 0:
-            raise SystemExit('tower enemy reset not found')
+          if reset < 0: raise SystemExit('tower enemy reset not found')
           guard='if(c.tower&&c.enemies.some(e=>e&&e.hp>0))return;'
           if guard not in s[max(start,reset-200):reset]:
             s=s[:reset]+guard+s[reset:]
 
+          # Do not auto-exit the tower just because 45 seconds passed without
+          # enough damage. That timeout was clearing the live enemy wave.
+          stall='M(\'<span class="bad">🗼 45 giây không gây được sát thương đáng kể (quái hồi máu nhanh hơn) — rời tháp.</span>\'),c.stallHp=null,qa(!1);return'
+          keep='M(\'<span class="bad">🗼 45 giây không gây được sát thương đáng kể (quái hồi máu nhanh hơn) — tiếp tục đánh.</span>\'),c.stallHp=null;return'
+          if stall not in s: raise SystemExit('tower stall auto-exit not found')
+          s=s.replace(stall,keep,1)
+
           p.write_text(s,encoding='utf-8')
           ip=Path('index.html')
           h=ip.read_text(encoding='utf-8')
-          h=re.sub(r'app\.js\?v=\d+','app.js?v=560',h,count=1)
+          h=re.sub(r'app\.js\?v=\d+','app.js?v=561',h,count=1)
           ip.write_text(h,encoding='utf-8')
           PY
           node --check app.js
-      - name: Diagnose tower enemy lifecycle
+      - name: Verify tower lifecycle patch
         run: |
           python3 - <<'PY'
           from pathlib import Path
           s=Path('app.js').read_text(encoding='utf-8')
-          needles=['LD=function(){','c.enemies=[]','LD(','c.tower']
-          for needle in needles:
-            print(f'=== {needle} count={s.count(needle)} ===')
-            pos=0
-            shown=0
-            while shown<20:
-              pos=s.find(needle,pos)
-              if pos<0: break
-              a=max(0,pos-350); b=min(len(s),pos+700)
-              print(f'--- offset {pos} ---')
-              print(s[a:b])
-              pos+=len(needle); shown+=1
+          checks={
+            'tower reset guard':'if(c.tower&&c.enemies.some(e=>e&&e.hp>0))return;',
+            'tower stall keep':'tiếp tục đánh.</span>'),c.stallHp=null;return',
+          }
+          for name,needle in checks.items():
+            print(name, 'OK' if needle in s else 'MISSING')
+            if needle not in s: raise SystemExit(name+' missing')
+          print('LD count',s.count('LD=function(){'),'stall exits',s.count('qa(!1);return'))
           PY
       - name: Commit patch
         run: |
@@ -67,5 +68,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add app.js index.html
           git diff --cached --quiet && echo "No changes needed" && exit 0
-          git commit -m "fix: prevent tower waves from resetting during combat"
+          git commit -m "fix: keep tower enemies after stall timeout"
           git push
