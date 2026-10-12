@@ -106,4 +106,36 @@
     } catch (_) {}
     return nativeFetch.call(this, input, init);
   };
+
+  // Keep the rebirth description/toast aligned with the new cumulative reward.
+  function refreshRebirthText() {
+    try {
+      const root = document.body;
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+      const nodes = [];
+      while (walker.nextNode()) nodes.push(walker.currentNode);
+      for (const node of nodes) {
+        const text = node.nodeValue || '';
+        if (text.includes('nhận cố định') && text.includes('5 điểm tiềm năng + 1 điểm kỹ năng')) {
+          node.nodeValue = text.replace(
+            /nhận cố định\s*5 điểm tiềm năng \+ 1 điểm kỹ năng/,
+            'mỗi lần +20 điểm tiềm năng + 5 điểm kỹ năng (CS1: 20/5 · CS2: 40/10 · … · CS10: 200/50)'
+          );
+        }
+        if (text.includes('nhận 5 tiềm năng + 1 điểm kỹ năng')) {
+          node.nodeValue = text.replace(
+            /nhận 5 tiềm năng \+ 1 điểm kỹ năng/,
+            'nhận điểm chuyển sinh theo cấp CS: 20 tiềm năng + 5 kỹ năng mỗi lần'
+          );
+        }
+      }
+    } catch (_) {}
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', refreshRebirthText, { once: true });
+  } else {
+    refreshRebirthText();
+  }
+  new MutationObserver(refreshRebirthText).observe(document.documentElement, { childList: true, subtree: true });
 })();
