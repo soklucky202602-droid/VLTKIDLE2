@@ -1,5 +1,6 @@
 /* VLTKIDLE UI migration — Nhân vật */
-#t-char{color:var(--v-text)}
+#t-char{color:var(--v-text);padding-top:8px}
+#t-char::before{content:"NHÂN VẬT";display:block;color:var(--v-gold);font-size:15px;font-weight:700;letter-spacing:1px;padding:2px 2px 8px;border-bottom:1px solid var(--v-gold2);margin-bottom:8px}
 #t-char h3{color:var(--v-gold);font-size:14px;font-weight:600;letter-spacing:.2px;border-bottom:1px solid var(--v-line);padding-bottom:6px;margin:10px 0 7px}
 #t-char .card{background:linear-gradient(180deg,#1c2723,#17211e);border:1px solid var(--v-line);box-shadow:inset 0 1px 0 #ffffff08}
 #t-char .eqgrid{gap:7px}
