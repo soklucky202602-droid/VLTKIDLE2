@@ -26,8 +26,6 @@ jobs:
           if s.count('SVR.drop||1')<2: raise SystemExit('drop multiplier missing')
 
           # LD() is the actual tower wave spawn/reset function in the bundle.
-          # Inject the guard by locating its first enemy-array reset directly;
-          # avoid brittle regex over the minified function body.
           start=s.find('LD=function(){')
           if start < 0:
             raise SystemExit('LD function not found')
@@ -45,6 +43,24 @@ jobs:
           ip.write_text(h,encoding='utf-8')
           PY
           node --check app.js
+      - name: Diagnose tower enemy lifecycle
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('app.js').read_text(encoding='utf-8')
+          needles=['LD=function(){','c.enemies=[]','LD(','c.tower']
+          for needle in needles:
+            print(f'=== {needle} count={s.count(needle)} ===')
+            pos=0
+            shown=0
+            while shown<20:
+              pos=s.find(needle,pos)
+              if pos<0: break
+              a=max(0,pos-350); b=min(len(s),pos+700)
+              print(f'--- offset {pos} ---')
+              print(s[a:b])
+              pos+=len(needle); shown+=1
+          PY
       - name: Commit patch
         run: |
           git config user.name "github-actions[bot]"
