@@ -3,7 +3,13 @@
   'use strict';
   const MAX = 50, BASE_LEVEL = 120, STEP = 20;
   function state(){try{return typeof Q==='function'?Q():null}catch(_){return null}}
-  function count(){const r=state();return r&&r.stat?Math.max(0,r.stat.reborn|0):0}
+  function count(){
+    try {
+      if (typeof o !== 'undefined' && o && o.rw && o.rw.stat)
+        return Math.max(0, o.rw.stat.reborn | 0);
+    } catch (_) {}
+    const r=state(); return r&&r.stat?Math.max(0,r.stat.reborn|0):0;
+  }
   function required(n){return BASE_LEVEL+(n-1)*STEP}
   function level(){try{return Math.max(1,(typeof o!=='undefined'&&o&&o.lvl)|0)}catch(_){return 1}}
 
@@ -19,7 +25,7 @@
     let ok=false; try{ok=typeof dt==='function'?await dt(msg):window.confirm(msg)}catch(_){ok=window.confirm(msg)}
     if(!ok)return;
     r.stat.reborn=next;
-    if(typeof o!=='undefined'&&o){o.lvl=1;o.xp=0;o.attr={str:0,dex:0,vit:0,eng:0};o.attrPts=next*50;o.stage=1;o.wave=1;o.push=true;o.tpPend=(o.tpPend|0)+1}
+    if(typeof o!=='undefined'&&o){o.rw=o.rw||r;o.rw.stat=o.rw.stat||r.stat;o.rw.stat.reborn=next;o.lvl=1;o.xp=0;o.attr={str:0,dex:0,vit:0,eng:0};o.attrPts=next*50;o.stage=1;o.wave=1;o.push=true;o.tpPend=(o.tpPend|0)+1}
     if(typeof c!=='undefined'&&c){c.tower=null;c.enemies=[];c.dirty=true;c.zoneShown=null}
     try{if(typeof F==='function')F()}catch(_){}
     try{if(typeof B==='function')B();else if(typeof save==='function')save()}catch(_){}
@@ -39,7 +45,7 @@
       if(/^\s*đạt cấp\s*\d+\s*:/i.test(old)){
         node.nodeValue=`Đạt cấp ${req}: về cấp 1, giữ nguyên trang bị và toàn bộ võ công. Mỗi lần chuyển sinh tăng yêu cầu thêm 20 cấp.`; return;
       }
-      if(/^\s*đã chuyển sinh\s*:/i.test(old)||/^\s*đã chuyển sinh\s*\d+\s*lần/i.test(old)){
+      if(/đã chuyển sinh/i.test(old)||/kháng tất cả|độ khó: quái/i.test(old)){
         node.nodeValue=`Đã chuyển sinh: ${n}/${MAX} lần · hiện +${n*20}% kinh nghiệm, +${n*10}% sát thương.`; return;
       }
     });
