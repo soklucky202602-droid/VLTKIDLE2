@@ -1,94 +1,43 @@
-/* World chat unread badge: keep the World badge read/unread state independent. */
+/* World chat unread badge: keep World independent from Party and clear when World is opened. */
 (function(){
-  var readBase=0;
-  var opened=false;
-
   function worldTab(){
-    return document.querySelector('#u20ct .cch[data-cc="w"]');
+    return document.querySelector('#chatHead .cch[data-cc="w"]');
   }
 
-  function badgeNodes(){
-    var tab=worldTab();
-    var out=[];
-    if(tab){
-      tab.querySelectorAll('.ctn,b').forEach(function(el){ out.push(el); });
-    }
-    var main=document.getElementById('chatN');
-    if(main) out.push(main);
-    return out;
-  }
-
-  function rawWorldCount(){
-    var tab=worldTab();
-    if(!tab) return 0;
-    var el=tab.querySelector('.ctn');
+  function worldCounter(){
+    var el=document.querySelector('#u20ct button[data-lt="chat"] .ctn');
     var n=parseInt((el&&el.textContent||'').trim(),10);
     return isNaN(n)?0:n;
   }
 
-  function clearBadges(){
-    badgeNodes().forEach(function(el){ el.textContent=''; });
-  }
-
   function sync(){
-    var tab=worldTab();
-    if(!tab) return;
+    var badge=document.getElementById('chatN');
+    if(!badge) return;
 
-    var raw=rawWorldCount();
-
-    if(opened){
-      clearBadges();
+    /* World is the active/read channel: its unread badge must be empty. */
+    if(worldTab() && worldTab().classList.contains('on')){
+      badge.textContent='';
       return;
     }
 
-    /* The app's unread value is cumulative. Only show messages received after
-       the last time World was opened. */
-    var unread=raw-readBase;
-    if(unread<0){
-      readBase=0;
-      unread=raw;
-    }
-    var text=unread>0?(unread>9?'9+':String(unread)):'';
-    badgeNodes().forEach(function(el){ el.textContent=text; });
-  }
-
-  function markWorldRead(){
-    readBase=rawWorldCount();
-    opened=true;
-    clearBadges();
-    setTimeout(sync,0);
-    setTimeout(sync,50);
-    setTimeout(sync,150);
-    setTimeout(sync,300);
+    var n=worldCounter();
+    badge.textContent=n>0?(n>9?'9+':String(n)):'';
   }
 
   function boot(){
-    var panel=document.getElementById('u20ct');
-    if(!panel) return;
-
-    panel.addEventListener('click',function(ev){
-      var tab=ev.target.closest && ev.target.closest('.cch[data-cc="w"]');
-      if(!tab) return;
-      markWorldRead();
-    },true);
-
-    panel.addEventListener('click',function(ev){
-      var tab=ev.target.closest && ev.target.closest('.cch[data-cc="p"]');
-      if(!tab) return;
-      opened=false;
-      sync();
-    },true);
-
-    new MutationObserver(function(){
-      var tab=worldTab();
-      if(tab && tab.classList.contains('on')){
-        opened=true;
-        clearBadges();
-      }
-      sync();
-    }).observe(panel,{subtree:true,childList:true,characterData:true});
-
     sync();
+    var panel=document.getElementById('chatBox');
+    if(panel){
+      panel.addEventListener('click',function(ev){
+        var tab=ev.target.closest && ev.target.closest('#chatHead .cch[data-cc="w"]');
+        if(!tab) return;
+        setTimeout(sync,0);
+        setTimeout(sync,50);
+        setTimeout(sync,150);
+        setTimeout(sync,300);
+      },true);
+      new MutationObserver(sync).observe(panel,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['class']});
+    }
     setInterval(sync,250);
   }
 
