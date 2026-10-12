@@ -22,10 +22,13 @@ jobs:
 
           if 'loadServerSettings=async()=>{' not in s:
               marker = 'p0=async s=>'
-              insert = '''SVR={exp:1,gold:1,drop:1,maintenance:!1,last:0},loadServerSettings=async()=>{try{const A=await l3(),{data:n,error:t}=await A.from("game_settings").select("key,value");if(t)throw t;const e={exp:1,gold:1,drop:1,maintenance:!1};for(const r of n||[]){const l=r&&r.value||{},d=typeof l.value==="number"?l.value:parseFloat(l.value);r.key==="exp_multiplier"&&Number.isFinite(d)&&(e.exp=Math.max(.01,d));r.key==="gold_multiplier"&&Number.isFinite(d)&&(e.gold=Math.max(.01,d));r.key==="drop_multiplier"&&Number.isFinite(d)&&(e.drop=Math.max(.01,d));r.key==="maintenance"&&typeof l.enabled==="boolean"&&(e.maintenance=l.enabled)}SVR.exp=e.exp,SVR.gold=e.gold,SVR.drop=e.drop,SVR.maintenance=e.maintenance,SVR.last=Date.now(),window.MAINT=SVR.maintenance}catch{}return SVR},'''
+              insert = '''SVR={exp:1,gold:1,drop:1,maintenance:!1,last:0},loadServerSettings=async()=>{try{const A=k.sb;if(!A)return SVR;const {data:n,error:t}=await A.from("game_settings").select("key,value");if(t)throw t;const e={exp:1,gold:1,drop:1,maintenance:!1};for(const r of n||[]){const l=r&&r.value||{},d=typeof l.value==="number"?l.value:parseFloat(l.value);r.key==="exp_multiplier"&&Number.isFinite(d)&&(e.exp=Math.max(.01,d));r.key==="gold_multiplier"&&Number.isFinite(d)&&(e.gold=Math.max(.01,d));r.key==="drop_multiplier"&&Number.isFinite(d)&&(e.drop=Math.max(.01,d));r.key==="maintenance"&&typeof l.enabled==="boolean"&&(e.maintenance=l.enabled)}SVR.exp=e.exp,SVR.gold=e.gold,SVR.drop=e.drop,SVR.maintenance=e.maintenance,SVR.last=Date.now(),window.MAINT=SVR.maintenance}catch{}return SVR},'''
               if marker not in s:
                   raise SystemExit('load marker not found')
               s = s.replace(marker, insert + marker, 1)
+
+          # Fix an already-installed loader from older ADMV patches.
+          s = s.replace('const A=await l3(),{data:n,error:t}=await A.from("game_settings")', 'const A=k.sb;if(!A)return SVR;const {data:n,error:t}=await A.from("game_settings")', 1)
 
           old = 'Math.random()<du*a*Os(A)*e?1:0'
           new = 'Math.random()<Math.min(1,du*a*Os(A)*e*(SVR.drop||1))?1:0'
@@ -59,5 +62,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add app.js
           git diff --cached --quiet && echo "No changes needed" && exit 0
-          git commit -m "fix: apply ADMV multipliers to normal and tower combat"
+          git commit -m "fix: apply ADMV multipliers without recursive loader"
           git push
