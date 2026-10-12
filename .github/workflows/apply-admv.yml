@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Patch drop rate
+      - name: Patch drop rate and tower combat
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -24,10 +24,37 @@ jobs:
           if n!=1: raise SystemExit('da not found')
           s=s.replace('$s("shard",A)*Ue("shard")*t)','$s("shard",A)*Ue("shard")*t*(SVR.drop||1)*(c.tower?3:1))',1)
           if s.count('SVR.drop||1')<2: raise SystemExit('drop multiplier missing')
+
+          # Tower spawn must never clear a live wave. Only spawn again when
+          # every current tower enemy is already dead/removed.
+          patterns=[
+            r'(LD=function\(\)\{.*?)(c\.enemies=\[\])',
+            r'(towerSpawn=function\(\)\{.*?)(R\.enemies=\[\])',
+          ]
+          patched=False
+          for pat in patterns:
+            def repl(m):
+              nonlocal patched
+              body=m.group(1)
+              reset=m.group(2)
+              if 'enemies.some' in body[-500:]:
+                return m.group(0)
+              patched=True
+              if 'c.enemies' in reset:
+                guard='if(c.enemies.some(e=>e&&e.hp>0))return;'
+              else:
+                guard='if(R.enemies.some(e=>e&&e.hp>0))return;'
+              return body+guard+reset
+            s,n=re.subn(pat,repl,s,count=1,flags=re.S)
+            if n:
+              break
+          if not patched:
+            raise SystemExit('tower spawn function/reset not found')
+
           p.write_text(s,encoding='utf-8')
           ip=Path('index.html')
           h=ip.read_text(encoding='utf-8')
-          h=re.sub(r'app\.js\?v=\d+','app.js?v=557',h,count=1)
+          h=re.sub(r'app\.js\?v=\d+','app.js?v=558',h,count=1)
           ip.write_text(h,encoding='utf-8')
           PY
           node --check app.js
@@ -37,5 +64,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add app.js index.html
           git diff --cached --quiet && echo "No changes needed" && exit 0
-          git commit -m "fix: apply ADMV drop rate correctly"
+          git commit -m "fix: prevent tower waves from resetting during combat"
           git push
