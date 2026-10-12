@@ -16,7 +16,12 @@
 
   function slotOf(A){
     if(!A)return '';
-    try{if(typeof window.pA==='function'){var s=window.pA[A.d];if(s)return String(s)}}catch(e){}
+    try{
+      if(typeof window.pA==='function'){
+        var s=window.pA(A.d);
+        if(s)return String(s);
+      }
+    }catch(e){}
     return '';
   }
   function ringOf(A){
@@ -67,8 +72,30 @@
     return true;
   }
 
+  function hideLegacyFilter(host){
+    if(!host)return;
+    var all=host.querySelectorAll('*');
+    for(var i=0;i<all.length;i++){
+      var el=all[i],txt=String(el.textContent||'').replace(/\s+/g,' ').trim();
+      if(!txt)continue;
+      /* The old block has these labels. Hide the whole block, not only its heading. */
+      if(/Bộ lọc đồ/i.test(txt)&&/Nhật hết/i.test(txt)&&/Mặc định/i.test(txt)){
+        var p=el;
+        for(var n=0;n<8&&p&&p!==host;n++,p=p.parentElement){
+          var pt=String(p.textContent||'').replace(/\s+/g,' ');
+          if(/Bộ lọc đồ/i.test(pt)&&/Nhật hết/i.test(pt)&&/Mặc định/i.test(pt)&&pt.length<12000){
+            p.style.display='none';
+            p.setAttribute('data-vltk-legacy-loot','1');
+            break;
+          }
+        }
+      }
+    }
+    var marked=host.querySelectorAll('[data-vltk-legacy-loot="1"]');
+    for(var j=0;j<marked.length;j++)marked[j].style.display='none';
+  }
+
   function disableLegacyModes(){
-    /* Old filter state must no longer be able to force-pick everything. */
     try{
       if(window.o&&window.o.lootF){
         window.o.lootF.custom=false;
@@ -76,31 +103,25 @@
       }
       if(window.o&&window.o.lootAdv!==undefined)window.o.lootAdv=false;
     }catch(e){}
-
-    var style=document.getElementById('vltkLegacyLootFilterCss');
-    if(!style){
-      style=document.createElement('style');style.id='vltkLegacyLootFilterCss';
-      style.textContent='.lootf,.lootf.smart{display:none!important}.lootf + *{display:none!important}';
-      document.head.appendChild(style);
-    }
-
     var host=document.getElementById('t-inv');
-    if(host){
-      var hs=host.querySelectorAll('h3');
-      for(var i=0;i<hs.length;i++)if(/bộ lọc đồ/i.test(hs[i].textContent||''))hs[i].style.display='none';
-      var old=host.querySelectorAll('.lootf');
-      for(var j=0;j<old.length;j++)old[j].style.display='none';
-    }
+    if(host)hideLegacyFilter(host);
   }
 
   function installPickupFilter(){
-    if(typeof window.gA==='function')window.gA=function(A){return allowed(A)};
-    if(typeof window.el==='function'){
-      var oldEl=window.el;
-      if(!oldEl.__vltk2Wrapped){
-        var wrapped=function(A){return allowed(A)?oldEl(A):false};
-        wrapped.__vltk2Wrapped=true;window.el=wrapped;
+    if(typeof window.gA==='function'){
+      if(!window.gA.__vltk2Filter){
+        var oldGA=window.gA;
+        var wrappedGA=function(A){return allowed(A)};
+        wrappedGA.__vltk2Filter=true;
+        wrappedGA.__vltk2Original=oldGA;
+        window.gA=wrappedGA;
       }
+    }
+    if(typeof window.el==='function'&&!window.el.__vltk2Wrapped){
+      var oldEl=window.el;
+      var wrapped=function(A){return allowed(A)?oldEl(A):false};
+      wrapped.__vltk2Wrapped=true;
+      window.el=wrapped;
     }
   }
 
@@ -112,10 +133,10 @@
     box.innerHTML='<div class="vltk-lf2-title">LỌC ĐỒ <span>2 TIÊU CHÍ</span></div>'+
       '<div class="vltk-lf2-row"><label>Số dòng thuộc tính</label><select id="vltkLfLines">'+
       [1,2,3,4,5,6].map(function(n){return '<option value="'+n+'" '+(n===state.minLines?'selected':'')+'>'+n+' dòng trở lên</option>'}).join('')+
-      '</select></div>'+
-      '<div class="vltk-lf2-row"><label><input id="vltkLfElement" type="checkbox" '+(state.element?'checked':'')+'> Ngũ hành theo vũ khí đang cầm</label></div>'+
+      '</select></div>'+ 
+      '<div class="vltk-lf2-row"><label><input id="vltkLfElement" type="checkbox" '+(state.element?'checked':'')+'> Ngũ hành theo vũ khí đang cầm</label></div>'+ 
       '<div class="vltk-lf2-note">8 vị trí lọc: Áo · Dây chuyền · Thắt lưng · Nhẫn dưới · Bao tay · Ngọc bội · Giày · Nhẫn trên. Các loại đồ khác vẫn nhặt bình thường.</div>';
-    host.prepend(box);
+    host.insertBefore(box,host.firstChild);
     box.querySelector('#vltkLfLines').onchange=function(){state.minLines=Math.max(1,Math.min(6,+this.value||1));save();installPickupFilter()};
     box.querySelector('#vltkLfElement').onchange=function(){state.element=!!this.checked;save();installPickupFilter()};
   }
@@ -123,19 +144,35 @@
   function style(){
     if(document.getElementById('vltkLootFilter2Css'))return;
     var s=document.createElement('style');s.id='vltkLootFilter2Css';
-    s.textContent='#vltkLootFilter2{margin:10px 0;padding:12px;border:1px solid rgba(210,168,72,.55);background:rgba(10,11,10,.94);color:#ead9ad;font:12px ui-monospace,monospace}#vltkLootFilter2 .vltk-lf2-title{font-weight:800;letter-spacing:1.4px;color:#e6c477;margin-bottom:10px}#vltkLootFilter2 .vltk-lf2-title span{float:right;font-size:9px;color:#8e8067}#vltkLootFilter2 .vltk-lf2-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:8px 0}#vltkLootFilter2 select{min-width:150px;height:32px;background:#090b0a;color:#ead9ad;border:1px solid #665538;padding:0 8px}#vltkLootFilter2 input{accent-color:#b88d3b}#vltkLootFilter2 label{cursor:pointer}#vltkLootFilter2 .vltk-lf2-note{margin-top:9px;padding-top:8px;border-top:1px solid rgba(210,168,72,.18);font-size:10px;line-height:1.5;color:#8e8067}';
+    s.textContent='#vltkLootFilter2{display:block!important;margin:10px 0;padding:12px;border:1px solid rgba(210,168,72,.55);background:rgba(10,11,10,.96);color:#ead9ad;font:12px ui-monospace,monospace;position:relative;z-index:5}#vltkLootFilter2 .vltk-lf2-title{font-weight:800;letter-spacing:1.4px;color:#e6c477;margin-bottom:10px}#vltkLootFilter2 .vltk-lf2-title span{float:right;font-size:9px;color:#8e8067}#vltkLootFilter2 .vltk-lf2-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:8px 0}#vltkLootFilter2 select{min-width:150px;height:32px;background:#090b0a;color:#ead9ad;border:1px solid #665538;padding:0 8px}#vltkLootFilter2 input{accent-color:#b88d3b}#vltkLootFilter2 label{cursor:pointer}#vltkLootFilter2 .vltk-lf2-note{margin-top:9px;padding-top:8px;border-top:1px solid rgba(210,168,72,.18);font-size:10px;line-height:1.5;color:#8e8067}';
     document.head.appendChild(s);
   }
 
   function boot(){
-    disableLegacyModes();installPickupFilter();style();render();
+    style();
     var host=document.getElementById('t-inv');
-    if(host)new MutationObserver(function(){disableLegacyModes();installPickupFilter();if(!document.getElementById('vltkLootFilter2'))render()}).observe(host,{childList:true,subtree:true});
+    if(!host)return;
+    hideLegacyFilter(host);
+    disableLegacyModes();
+    installPickupFilter();
+    render();
+    var observer=new MutationObserver(function(){
+      hideLegacyFilter(host);
+      disableLegacyModes();
+      installPickupFilter();
+      if(!document.getElementById('vltkLootFilter2'))render();
+    });
+    observer.observe(host,{childList:true,subtree:true});
   }
 
   var tries=0,t=setInterval(function(){
     tries++;
-    if(typeof window.gA==='function'&&document.getElementById('t-inv')){clearInterval(t);boot()}
-    else if(tries>160)clearInterval(t);
+    var host=document.getElementById('t-inv');
+    if(host){
+      clearInterval(t);
+      boot();
+    }else if(tries>240){
+      clearInterval(t);
+    }
   },250);
 })();
