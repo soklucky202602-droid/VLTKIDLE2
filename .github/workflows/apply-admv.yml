@@ -1,4 +1,5 @@
 name: Apply ADMV gameplay settings
+# trigger validation run
 
 on:
   push:
