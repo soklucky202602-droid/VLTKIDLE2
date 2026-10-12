@@ -1,0 +1,64 @@
+:root{
+  --v-bg:#0e1412;--v-panel:#151d1a;--v-panel2:#1c2723;--v-line:#2c3b35;--v-line2:#4a5f55;
+  --v-gold:#e6c67a;--v-gold2:#a8864a;--v-text:#e9e2d0;--v-dim:#98a397;
+}
+/* VLTKIDLE UI skin - phase 1: khung + HUD + thanh dieu huong. Khong thay doi engine/JX. */
+#app{background:var(--v-bg);box-shadow:0 0 40px #000}
+#top{
+  min-height:64px;gap:8px;padding:calc(6px + var(--safe-t)) 10px 6px;
+  background:linear-gradient(#1a2521,#0f1613);border-bottom:1px solid var(--v-gold2);z-index:20;
+}
+#top .lvbox{position:relative;width:46px;height:46px;flex:none;border:2px solid var(--v-gold2);border-radius:8px;background:radial-gradient(#2c3a2f,#0c120f);overflow:visible}
+#top .lvbox #lv{position:absolute;right:-6px;bottom:-6px;min-width:22px;height:22px;padding:0 4px;border-radius:11px;border:2px solid var(--v-gold2);background:#0c120f;display:grid;place-items:center;color:var(--v-gold);font-weight:700;font-size:12px}
+#top .topmid{flex:1;min-width:0}
+#top .topmid .row{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;margin-bottom:3px}
+#top .topmid b{color:var(--v-gold);font-family:inherit}
+#top #stageLbl{color:var(--v-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#top .gold{display:flex;align-items:center;gap:5px;font-weight:600;color:var(--v-gold);font-size:13px;white-space:nowrap}
+#top .coin{width:14px;height:10px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#fbe9ad,#a7792b);box-shadow:0 0 0 1px #5a3d14}
+#top #ktcBtn,#top #actBtn,#top #giftBtn,#top #compactBtn{height:36px;min-width:36px;padding:0 8px;border:1px solid var(--v-gold2);border-radius:6px;background:linear-gradient(#34483f,#1f2c27);color:var(--v-text)}
+#top #giftBtn{width:40px;border-radius:50%;background:radial-gradient(#3a2f1c,#120d06);font-size:16px}
+#top #giftBtn.on::after{content:"";position:absolute;top:0;right:0;width:9px;height:9px;border-radius:50%;background:#e0402a;box-shadow:0 0 0 2px #0f1613;animation:vgiftpulse 1.2s infinite}
+@keyframes vgiftpulse{50%{transform:scale(1.3)}}
+
+#battle{background:#1a211b}
+#battle #bg{filter:saturate(.85) brightness(.8)}
+#battle::after{z-index:8}
+#hud{left:8px;right:8px;top:7px;grid-template-columns:46px 1fr 1fr;gap:4px 8px;padding:6px 8px;border:1px solid #4a5f5588;border-radius:7px;background:#0b100ec8;backdrop-filter:blur(2px);z-index:9}
+#hud .jxs{display:flex;align-items:center;justify-content:space-between;gap:5px;min-width:0;padding:0 5px;border:1px solid var(--v-line2);border-radius:4px;background:#111914aa;color:var(--v-dim);font-size:10px}
+#hud .jxs b{color:var(--v-gold);font-size:12px}
+#hud .bar{height:12px;background:#060908;border:1px solid var(--v-line2);border-radius:3px;overflow:hidden}
+#hud .bar i{position:absolute;inset:0;width:0}
+#hud .bar span{position:absolute;inset:0;line-height:11px;text-align:center;font-size:9px;color:#fff;text-shadow:0 0 2px #000}
+#hud .bar.hp i{background:linear-gradient(#e0503f,#7d1a12)}
+#hud .bar.mp i{background:linear-gradient(#5a8fe6,#1d3f80)}
+#hud .bar.xp i{background:linear-gradient(#e0bd55,#8f6a1c)}
+#hud #mainSk{grid-column:1/4;color:var(--v-gold);font-size:11px;text-shadow:0 0 3px #000}
+#topCtl{z-index:12;top:58px!important;right:8px!important;display:flex;gap:5px}
+#topCtl .chip,#inBtn{border:1px solid var(--v-gold2);border-radius:5px;background:#111914cc;color:var(--v-gold);padding:4px 8px}
+
+#panel{background:var(--v-panel);border-top:1px solid var(--v-gold2)}
+#panel .tab{padding:10px 10px 16px}
+#panel h3{color:var(--v-gold);font-family:inherit}
+#panel .card{background:var(--v-panel2);border-color:var(--v-line);border-radius:6px}
+#panel .btn{background:linear-gradient(#34483f,#1f2c27);border-color:var(--v-line2);border-radius:5px;color:var(--v-text)}
+#panel .btn.on{border-color:var(--v-gold);color:var(--v-gold)}
+
+#tabs{background:#0b100e;border-top:1px solid var(--v-gold2);padding-bottom:var(--safe-b);grid-template-columns:repeat(8,1fr)}
+#tabs button{position:relative;padding:9px 2px;font-size:11px;color:var(--v-dim);background:transparent}
+#tabs button.on{color:var(--v-gold);box-shadow:inset 0 2px 0 var(--v-gold)}
+#tabs button:hover{color:var(--v-gold)}
+#tabs .dot{position:absolute;top:5px;right:10%;width:7px;height:7px;border-radius:50%;background:#f55}
+
+#modal{background:#000b;z-index:100}
+#modal .mbox{background:var(--v-panel);border:1px solid var(--v-gold2);border-radius:8px;padding:14px}
+#modal .mx{color:var(--v-dim)}
+#toast{background:#000d;border-color:var(--v-gold2);border-radius:6px}
+
+@media(max-width:430px){
+  #top{gap:5px;padding-left:7px;padding-right:7px}
+  #top #ktcBtn{display:none}
+  #top #actBtn,#top #compactBtn{min-width:32px;padding:0 5px}
+  #top .gold{font-size:12px}
+  #tabs button{font-size:10px}
+}
