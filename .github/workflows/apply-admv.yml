@@ -1,7 +1,5 @@
 name: Apply ADMV gameplay settings
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 permissions:
   contents: write
@@ -17,9 +15,6 @@ jobs:
           import re
           p=Path('app.js')
           s=p.read_text(encoding='utf-8')
-
-          # Reference Tower progression: 2000 floors, uncapped monster level,
-          # 3.5% HP growth per floor, and 60% of HP growth for damage.
           start=s.find('LD=function(){')
           if start < 0:
               raise SystemExit('LD function not found')
@@ -27,37 +22,28 @@ jobs:
           if end < 0:
               raise SystemExit('LD function end not found')
           tower=s[start:end]
-          if 'n=Wd(A)' not in tower:
-              raise SystemExit('tower level expression not found')
-          if 'i=rP(A)' not in tower:
-              raise SystemExit('tower multiplier expression not found')
-          tower=tower.replace('n=Wd(A)','n=8+Math.round(A*1.8)',1)
-          tower=tower.replace('i=rP(A)','i={hp:1+A*.035,dmg:1+(A*.035)*.6}',1)
-
-          # Never reset a live tower wave from LD().
+          changed=False
+          if 'n=Wd(A)' in tower:
+              tower=tower.replace('n=Wd(A)','n=8+Math.round(A*1.8)',1); changed=True
+          if 'i=rP(A)' in tower:
+              tower=tower.replace('i=rP(A)','i={hp:1+A*.035,dmg:1+(A*.035)*.6}',1); changed=True
           if 'if(c.tower&&c.enemies.some(e=>e&&e.hp>0))return;' not in tower:
               reset=tower.find('c.enemies=[]')
-              if reset < 0:
-                  raise SystemExit('tower enemy reset not found')
-              tower=tower[:reset]+'if(c.tower&&c.enemies.some(e=>e&&e.hp>0))return;'+tower[reset:]
+              if reset >= 0:
+                  tower=tower[:reset]+'if(c.tower&&c.enemies.some(e=>e&&e.hp>0))return;'+tower[reset:]; changed=True
           s=s[:start]+tower+s[end:]
-
-          # Do not silently exit the tower from the anti-stall branch.
-          old_count=s.count('c.stallHp=null,qa(!1);return')
-          if old_count:
-              s=s.replace('c.stallHp=null,qa(!1);return','c.stallHp=null;return',1)
-          else:
-              old_count=s.count('c.stallHp=null;qa(!1);return')
-              if old_count:
-                  s=s.replace('c.stallHp=null;qa(!1);return','c.stallHp=null;return',1)
-              else:
-                  raise SystemExit('tower stall exit branch not found')
-
-          p.write_text(s,encoding='utf-8')
+          if 'c.stallHp=null,qa(!1);return' in s:
+              s=s.replace('c.stallHp=null,qa(!1);return','c.stallHp=null;return',1); changed=True
+          elif 'c.stallHp=null;qa(!1);return' in s:
+              s=s.replace('c.stallHp=null;qa(!1);return','c.stallHp=null;return',1); changed=True
+          if changed:
+              p.write_text(s,encoding='utf-8')
           ip=Path('index.html')
           h=ip.read_text(encoding='utf-8')
-          h=re.sub(r'app\.js\?v=\d+','app.js?v=563',h,count=1)
-          ip.write_text(h,encoding='utf-8')
+          h2=re.sub(r'app\.js\?v=\d+','app.js?v=563',h,count=1)
+          if h2 != h:
+              ip.write_text(h2,encoding='utf-8'); changed=True
+          print('Tower patch applied' if changed else 'Tower already up to date')
           PY
           node --check app.js
       - name: Verify tower progression
