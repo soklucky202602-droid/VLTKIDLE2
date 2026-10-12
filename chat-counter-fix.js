@@ -6,28 +6,21 @@
     return isFinite(v)?v:0;
   }
 
-  var syncing=false;
   var lastRawTotal=null;
+  var skipNextMutation=false;
 
   function syncWorldChatBadge(){
     var badge=document.getElementById('chatN');
     var party=document.getElementById('chatPN');
     if(!badge) return;
 
-    var raw=num(badge);
-    if(!syncing){
-      if(lastRawTotal===null || raw!==num(badge)) lastRawTotal=raw;
-      else if(lastRawTotal===null) lastRawTotal=raw;
-    }
-
-    if(lastRawTotal===null) lastRawTotal=raw;
+    if(lastRawTotal===null) lastRawTotal=num(badge);
     var world=Math.max(0,lastRawTotal-num(party));
     var value=world?(world>9?'9+':String(world)):'';
 
     if(badge.textContent===value) return;
-    syncing=true;
+    skipNextMutation=true;
     badge.textContent=value;
-    syncing=false;
   }
 
   function boot(){
@@ -36,22 +29,27 @@
     syncWorldChatBadge();
 
     var observer=new MutationObserver(function(){
-      if(syncing) return;
-      var badge=document.getElementById('chatN');
-      if(badge){
-        var current=num(badge);
-        if(current!==numText(lastRawTotal)) lastRawTotal=current;
+      if(skipNextMutation){
+        skipNextMutation=false;
+        return;
       }
+
+      var current=document.getElementById('chatN');
+      if(current) lastRawTotal=num(current);
       syncWorldChatBadge();
     });
 
-    function numText(v){
-      return typeof v==='number' && isFinite(v)?v:0;
-    }
-
     observer.observe(document.body,{subtree:true,childList:true,characterData:true});
     setInterval(function(){
-      if(!syncing) syncWorldChatBadge();
+      var current=document.getElementById('chatN');
+      if(current){
+        var value=num(current);
+        var displayed=(current.textContent||'').trim();
+        var displayedNum=displayed==='9+'?10:num(current);
+        var expected=lastRawTotal===null?value:Math.max(0,lastRawTotal-num(document.getElementById('chatPN')));
+        if(value!==lastRawTotal && displayedNum!==expected) lastRawTotal=value;
+      }
+      syncWorldChatBadge();
     },500);
   }
 
