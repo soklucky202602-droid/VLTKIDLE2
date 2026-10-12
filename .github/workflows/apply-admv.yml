@@ -17,43 +17,47 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import re
+
           p = Path('app.js')
           s = p.read_text(encoding='utf-8')
 
-          if 'loadServerSettings=async()=>{' not in s:
+          loader = '''loadServerSettings=async()=>{try{if(Date.now()-((SVR&&SVR.last)||0)<5000)return SVR;const A=k.sb;if(!A)return SVR;const {data:n,error:t}=await A.from("game_settings").select("key,value");if(t)throw t;const e={exp:1,gold:1,drop:1,maintenance:!1};for(const r of n||[]){const l=r&&r.value,d=l&&typeof l==="object"&&!Array.isArray(l)&&"value" in l?l.value:l,u=l&&typeof l==="object"&&!Array.isArray(l)&&"enabled" in l?l.enabled:l,c=typeof d==="number"?d:parseFloat(d);r.key==="exp_multiplier"&&Number.isFinite(c)&&(e.exp=Math.max(.01,c));r.key==="gold_multiplier"&&Number.isFinite(c)&&(e.gold=Math.max(.01,c));r.key==="drop_multiplier"&&Number.isFinite(c)&&(e.drop=Math.max(.01,c));r.key==="maintenance"&&typeof u==="boolean"&&(e.maintenance=u)}SVR.exp=e.exp,SVR.gold=e.gold,SVR.drop=e.drop,SVR.maintenance=e.maintenance,SVR.last=Date.now(),window.MAINT=SVR.maintenance}catch{}return SVR},'''
+
+          # Replace any existing ADMV loader regardless of its previous implementation.
+          pat = r'loadServerSettings=async\(\)=>\{.*?\},p0=async s=>'
+          if re.search(pat, s, re.S):
+              s = re.sub(pat, loader + 'p0=async s=>', s, count=1, flags=re.S)
+          else:
               marker = 'p0=async s=>'
-              insert = '''SVR={exp:1,gold:1,drop:1,maintenance:!1,last:0},loadServerSettings=async()=>{try{const A=k.sb;if(!A)return SVR;const {data:n,error:t}=await A.from("game_settings").select("key,value");if(t)throw t;const e={exp:1,gold:1,drop:1,maintenance:!1};for(const r of n||[]){const l=r&&r.value||{},d=typeof l.value==="number"?l.value:parseFloat(l.value);r.key==="exp_multiplier"&&Number.isFinite(d)&&(e.exp=Math.max(.01,d));r.key==="gold_multiplier"&&Number.isFinite(d)&&(e.gold=Math.max(.01,d));r.key==="drop_multiplier"&&Number.isFinite(d)&&(e.drop=Math.max(.01,d));r.key==="maintenance"&&typeof l.enabled==="boolean"&&(e.maintenance=l.enabled)}SVR.exp=e.exp,SVR.gold=e.gold,SVR.drop=e.drop,SVR.maintenance=e.maintenance,SVR.last=Date.now(),window.MAINT=SVR.maintenance}catch{}return SVR},'''
               if marker not in s:
-                  raise SystemExit('load marker not found')
-              s = s.replace(marker, insert + marker, 1)
+                  raise SystemExit('p0 marker not found')
+              s = s.replace(marker, loader + marker, 1)
 
-          # Fix an already-installed loader from older ADMV patches.
-          s = s.replace('const A=await l3(),{data:n,error:t}=await A.from("game_settings")', 'const A=k.sb;if(!A)return SVR;const {data:n,error:t}=await A.from("game_settings")', 1)
+          # Make every server RPC refresh ADMV settings before the RPC executes.
+          s = s.replace(
+              'p0=async s=>{if(window.MAINT)throw new Error("Máy chủ đang bảo trì");',
+              'p0=async s=>{await loadServerSettings();if(window.MAINT)throw new Error("Máy chủ đang bảo trì");',
+              1
+          )
 
-          old = 'Math.random()<du*a*Os(A)*e?1:0'
-          new = 'Math.random()<Math.min(1,du*a*Os(A)*e*(SVR.drop||1))?1:0'
-          if old in s:
-              s = s.replace(old, new, 1)
-
-          old = 'Math.random()<(il[A.cls]??il.normal)*a*Os(A)*(A.bonusDrop||1)'
-          new = 'Math.random()<Math.min(1,(il[A.cls]??il.normal)*a*Os(A)*(A.bonusDrop||1)*(SVR.drop||1))'
-          if old in s:
-              s = s.replace(old, new, 1)
-
-          old = 'c.tower?0:Math.round(Km(A)*J4().rew)'
-          new = 'Math.round(Km(A)*J4().rew*(SVR.gold||1))'
-          if old in s:
-              s = s.replace(old, new, 1)
-
-          old = 'A*Vt*(1+(o.tanthuXp&&!(v0()>0)?+o.tanthuXp:0))'
-          new = 'A*Vt*(SVR.exp||1)*(1+(o.tanthuXp&&!(v0()>0)?+o.tanthuXp:0))'
-          if old in s:
-              s = s.replace(old, new, 1)
+          # Keep the gameplay multipliers in the actual reward formulas.
+          reps = [
+              ('Math.random()<du*a*Os(A)*e?1:0', 'Math.random()<Math.min(1,du*a*Os(A)*e*(SVR.drop||1))?1:0'),
+              ('Math.random()<(il[A.cls]??il.normal)*a*Os(A)*(A.bonusDrop||1)', 'Math.random()<Math.min(1,(il[A.cls]??il.normal)*a*Os(A)*(A.bonusDrop||1)*(SVR.drop||1))'),
+              ('c.tower?0:Math.round(Km(A)*J4().rew)', 'Math.round(Km(A)*J4().rew*(SVR.gold||1))'),
+              ('A*Vt*(1+(o.tanthuXp&&!(v0()>0)?+o.tanthuXp:0))', 'A*Vt*(SVR.exp||1)*(1+(o.tanthuXp&&!(v0()>0)?+o.tanthuXp:0))'),
+          ]
+          for old,new in reps:
+              if old in s:
+                  s=s.replace(old,new,1)
 
           if 'SVR.exp||1' not in s or 'SVR.gold||1' not in s or 'SVR.drop||1' not in s:
-              raise SystemExit('ADMV multipliers were not fully patched')
+              raise SystemExit('ADMV multipliers missing from app.js')
+          if 'loadServerSettings=async()=>{try{' not in s:
+              raise SystemExit('ADMV loader missing')
 
-          p.write_text(s, encoding='utf-8')
+          p.write_text(s,encoding='utf-8')
           PY
           node --check app.js
       - name: Commit patch
@@ -62,5 +66,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add app.js
           git diff --cached --quiet && echo "No changes needed" && exit 0
-          git commit -m "fix: apply ADMV multipliers without recursive loader"
+          git commit -m "fix: make ADMV settings load reliably"
           git push
