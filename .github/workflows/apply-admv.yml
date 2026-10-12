@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Patch drop rate and tower combat
+      - name: Patch tower progression and combat
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -25,17 +25,26 @@ jobs:
           s=s.replace('$s("shard",A)*Ue("shard")*t)','$s("shard",A)*Ue("shard")*t*(SVR.drop||1)*(c.tower?3:1))',1)
           if s.count('SVR.drop||1')<2: raise SystemExit('drop multiplier missing')
 
-          # Never reset a live tower wave from LD().
+          # Reference Tower progression: 2000 floors, uncapped monster level,
+          # 3.5% HP growth per floor, and 60% of HP growth for damage.
           start=s.find('LD=function(){')
           if start < 0: raise SystemExit('LD function not found')
+          old='n=Wd(A)'
+          if old not in s[start:start+1200]: raise SystemExit('tower level expression not found')
+          s=s[:start]+s[start:].replace(old,'n=8+Math.round(A*1.8)',1)
+          old='i=rP(A)'
+          if old not in s[start:start+1400]: raise SystemExit('tower multiplier expression not found')
+          s=s[:start]+s[start:].replace(old,'i={hp:1+A*.035,dmg:1+(A*.035)*.6}',1)
+
+          # Never reset a live tower wave from LD().
+          start=s.find('LD=function(){')
           reset=s.find('c.enemies=[]',start)
           if reset < 0: raise SystemExit('tower enemy reset not found')
           guard='if(c.tower&&c.enemies.some(e=>e&&e.hp>0))return;'
           if guard not in s[max(start,reset-200):reset]:
             s=s[:reset]+guard+s[reset:]
 
-          # The anti-stall branch is minified and may vary slightly. Remove
-          # only a branch that clears c.stallHp and immediately calls qa(!1).
+          # Do not silently exit the tower from the anti-stall branch.
           pat=r'(c\.stallHp=null,)(qa\(!1\);return)'
           s,n=re.subn(pat,r'\1return',s,count=1)
           if n!=1:
@@ -46,21 +55,20 @@ jobs:
           p.write_text(s,encoding='utf-8')
           ip=Path('index.html')
           h=ip.read_text(encoding='utf-8')
-          h=re.sub(r'app\.js\?v=\d+','app.js?v=562',h,count=1)
+          h=re.sub(r'app\.js\?v=\d+','app.js?v=563',h,count=1)
           ip.write_text(h,encoding='utf-8')
           PY
           node --check app.js
-      - name: Verify tower lifecycle patch
+      - name: Verify tower progression
         run: |
           python3 - <<'PY'
           from pathlib import Path
           s=Path('app.js').read_text(encoding='utf-8')
-          if 'if(c.tower&&c.enemies.some(e=>e&&e.hp>0))return;' not in s:
-            raise SystemExit('tower reset guard missing')
-          if 'c.stallHp=null,qa(!1);return' in s or 'c.stallHp=null;qa(!1);return' in s:
-            raise SystemExit('tower stall exit still present')
-          print('Tower lifecycle patch OK')
-          print('LD count',s.count('LD=function(){'))
+          if 'n=8+Math.round(A*1.8)' not in s: raise SystemExit('unlimited tower level formula missing')
+          if 'i={hp:1+A*.035,dmg:1+(A*.035)*.6}' not in s: raise SystemExit('tower scaling formula missing')
+          if 'if(c.tower&&c.enemies.some(e=>e&&e.hp>0))return;' not in s: raise SystemExit('tower reset guard missing')
+          if 'c.stallHp=null,qa(!1);return' in s or 'c.stallHp=null;qa(!1);return' in s: raise SystemExit('tower stall exit still present')
+          print('Tower progression OK')
           PY
       - name: Commit patch
         run: |
@@ -68,5 +76,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add app.js index.html
           git diff --cached --quiet && echo "No changes needed" && exit 0
-          git commit -m "fix: robustly disable tower stall exit"
+          git commit -m "feat: rebuild tower progression to 2000 floors"
           git push
