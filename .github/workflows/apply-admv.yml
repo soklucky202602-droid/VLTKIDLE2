@@ -48,6 +48,7 @@ jobs:
               1
           )
 
+          # ADMV global multipliers.
           reps = [
               ('Math.random()<du*a*Os(A)*e?1:0', 'Math.random()<Math.min(1,du*a*Os(A)*e*(SVR.drop||1))?1:0'),
               ('Math.random()<(il[A.cls]??il.normal)*a*Os(A)*(A.bonusDrop||1)', 'Math.random()<Math.min(1,(il[A.cls]??il.normal)*a*Os(A)*(A.bonusDrop||1)*(SVR.drop||1))'),
@@ -58,19 +59,67 @@ jobs:
               if old in s:
                   s=s.replace(old,new,1)
 
+          # Tower: EXP is exactly 3x the normal/ADMV-adjusted value.
+          if 'A*Vt*(SVR.exp||1)*(1+(o.tanthuXp' in s and 'A*Vt*(SVR.exp||1)*(c.tower?3:1)' not in s:
+              s=s.replace(
+                  'A*Vt*(SVR.exp||1)*(1+(o.tanthuXp&&!(v0()>0)?+o.tanthuXp:0))',
+                  'A*Vt*(SVR.exp||1)*(c.tower?3:1)*(1+(o.tanthuXp&&!(v0()>0)?+o.tanthuXp:0))',
+                  1
+              )
+
+          # Tower: item-drop chances are 3x; guaranteed boss quantity is not artificially tripled.
+          s=s.replace(
+              'Math.random()<Math.min(1,.5*a*e*(SVR.drop||1))?1:0',
+              'Math.random()<Math.min(1,.5*a*e*(SVR.drop||1)*(c.tower?3:1))?1:0',
+              1
+          )
+          s=s.replace(
+              'Math.random()<Math.min(1,du*a*Os(A)*e*(SVR.drop||1))?1:0',
+              'Math.random()<Math.min(1,du*a*Os(A)*e*(SVR.drop||1)*(c.tower?3:1))?1:0',
+              1
+          )
+          s=s.replace(
+              'Math.min(1,(il[A.cls]??il.normal)*a*Os(A)*(A.bonusDrop||1)*(SVR.drop||1))',
+              'Math.min(1,(il[A.cls]??il.normal)*a*Os(A)*(A.bonusDrop||1)*(SVR.drop||1)*(c.tower?3:1))',
+              1
+          )
+
+          # Tower: shard-drop chance is also 3x on top of the existing floor-based Tower bonus.
+          s=s.replace(
+              '$s("shard",A)*Ue("shard")*t)',
+              '$s("shard",A)*Ue("shard")*t*(SVR.drop||1)*(c.tower?3:1))',
+              1
+          )
+
+          # Tower: triple item quality/affix count, capped at the game's normal 6-affix maximum.
+          old_f6='F6=function(A,n=1){const t=Math.random()*100-(A==="boss"?35:A==="elite"?12:0)-(c.P?c.P.lucky:0)*.5-Math.min(n,200)*.05;return t<3?E0(5,6):t<15?E0(3,4):t<50?E0(1,2):0}'
+          new_f6='F6=function(A,n=1){const t=Math.random()*100-(A==="boss"?35:A==="elite"?12:0)-(c.P?c.P.lucky:0)*.5-Math.min(n,200)*.05,q=t<3?E0(5,6):t<15?E0(3,4):t<50?E0(1,2):0;return c.tower?Math.min(6,q*3):q}'
+          if old_f6 in s:
+              s=s.replace(old_f6,new_f6,1)
+
           if 'SVR.exp||1' not in s or 'SVR.gold||1' not in s or 'SVR.drop||1' not in s:
               raise SystemExit('ADMV multipliers missing from app.js')
+          if 'c.tower?3:1' not in s:
+              raise SystemExit('Tower 3x multiplier missing from app.js')
+          if 'return c.tower?Math.min(6,q*3):q' not in s:
+              raise SystemExit('Tower quality multiplier missing from app.js')
           if 'loadServerSettings=async()=>{try{' not in s:
               raise SystemExit('ADMV loader missing')
 
           p.write_text(s,encoding='utf-8')
+
+          # Bust app.js cache so the new Tower rules reach clients immediately.
+          ip=Path('index.html')
+          h=ip.read_text(encoding='utf-8')
+          h=re.sub(r'app\.js\?v=\d+', 'app.js?v=553', h, count=1)
+          ip.write_text(h,encoding='utf-8')
           PY
           node --check app.js
       - name: Commit patch
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add app.js
+          git add app.js index.html
           git diff --cached --quiet && echo "No changes needed" && exit 0
-          git commit -m "fix: refresh ADMV settings before server actions"
+          git commit -m "feat: give Tower 3x exp drop and item quality"
           git push
