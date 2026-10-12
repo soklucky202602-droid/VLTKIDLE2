@@ -1,8 +1,8 @@
 /* VLTK-style rebirth rules, based on js.zip rewards.js.
    CS1: level 120. Each next CS +20 levels. Max CS50.
-   Rebirth resets level/xp/attributes/stage/wave, keeps equipment + all learned skills,
-   grants 50 potential points x current CS, grants +1 tam phap pending,
-   and gives permanent +20% XP / +10% damage per CS. */
+   Reset level/xp/attributes/stage/wave; keep equipment + all learned skills.
+   Grant 50 potential points x current CS, +1 tam phap pending,
+   and permanent +20% XP / +10% damage per CS. */
 (function () {
   'use strict';
 
@@ -23,7 +23,7 @@
     return BASE_LEVEL + (next - 1) * STEP;
   }
 
-  /* Replace the old combat bonus: +20% XP and +10% damage per CS. */
+  /* Zip source: +20% XP and +10% damage per rebirth. */
   try {
     mi = function () {
       const n = rebornCount();
@@ -31,10 +31,8 @@
     };
   } catch (_) {}
 
-  /* The zip source has no rebirth monster scaling. */
-  try {
-    R5 = function () { return { hp: 1, dmg: 1 }; };
-  } catch (_) {}
+  /* Zip source has no rebirth monster scaling. */
+  try { R5 = function () { return { hp: 1, dmg: 1 }; }; } catch (_) {}
 
   /* Zip source does not add rebirth count to equipment level requirements. */
   try {
@@ -49,9 +47,8 @@
 
     const current = Math.max(0, r.stat.reborn | 0);
     const next = current + 1;
-    const level = (() => {
-      try { return Math.max(1, (typeof o !== 'undefined' && o && o.lvl) | 0); } catch (_) { return 1; }
-    })();
+    let level = 1;
+    try { level = Math.max(1, (typeof o !== 'undefined' && o && o.lvl) | 0); } catch (_) {}
 
     if (next > MAX || level < requiredLevel(next)) return;
 
@@ -63,8 +60,7 @@
 
     let ok = false;
     try {
-      if (typeof dt === 'function') ok = await dt(message);
-      else ok = window.confirm(message);
+      ok = typeof dt === 'function' ? await dt(message) : window.confirm(message);
     } catch (_) { ok = window.confirm(message); }
     if (!ok) return;
 
@@ -79,10 +75,8 @@
         o.stage = 1;
         o.wave = 1;
         o.push = true;
-
-        /* Keep equipment and every learned skill exactly as the zip source does. */
-        if (typeof o.tpPend !== 'number') o.tpPend = 0;
-        o.tpPend += 1;
+        o.tpPend = (o.tpPend | 0) + 1;
+        /* Equipment and all learned skills are intentionally untouched. */
       }
 
       if (typeof c !== 'undefined' && c) {
@@ -94,10 +88,8 @@
 
       if (typeof F === 'function') F();
       if (typeof B === 'function') B();
-      if (typeof save === 'function') save();
-      else if (typeof H === 'function') H();
+      else if (typeof save === 'function') save();
 
-      /* Refresh any rebirth/reward modal if the current source exposes one. */
       try {
         if (typeof giftModal === 'function') {
           giftTab = 'reborn';
@@ -109,47 +101,38 @@
     }
   }
 
-  /* Replace the global handler used by the current minified app. */
   try { zD = doRebirthZip; } catch (_) {}
   try { window.zD = doRebirthZip; } catch (_) {}
 
+  /* Only watch the modal body; avoid scanning the whole game DOM on every mutation. */
   function patchRebirthText(root) {
-    const nodes = root.querySelectorAll ? root.querySelectorAll('*') : [];
+    if (!root || !root.querySelectorAll) return;
+    const nodes = root.querySelectorAll('*');
     for (const el of nodes) {
       if (!el || el.children.length) continue;
       const text = (el.textContent || '').trim();
-      if (!text) continue;
+      if (!/chuyển sinh/i.test(text)) continue;
 
-      if (/chuyển sinh/i.test(text)) {
-        let out = text
-          .replace(/tối đa\s*10\s*lần/gi, 'tối đa 50 lần')
-          .replace(/tối đa\s*10/gi, 'tối đa 50')
-          .replace(/cấp\s*200/gi, 'cấp 120')
-          .replace(/level\s*200/gi, 'cấp 120')
-          .replace(/\+10%\s*kinh nghiệm/gi, '+20% kinh nghiệm')
-          .replace(/\+10%\s*sát thương/gi, '+10% sát thương');
+      let out = text
+        .replace(/tối đa\s*10\s*lần/gi, 'tối đa 50 lần')
+        .replace(/tối đa\s*10/gi, 'tối đa 50')
+        .replace(/cấp\s*200/gi, 'cấp 120')
+        .replace(/level\s*200/gi, 'cấp 120');
 
-        const n = rebornCount();
-        const next = n + 1;
-        if (next <= MAX && /chuyển sinh/i.test(out)) {
-          out = out.replace(/cấp\s*\d+/i, `cấp ${requiredLevel(next)}`);
-        }
-        if (out !== text) el.textContent = out;
-      }
+      const next = rebornCount() + 1;
+      if (next <= MAX) out = out.replace(/cấp\s*\d+/i, `cấp ${requiredLevel(next)}`);
+      if (out !== text) el.textContent = out;
     }
   }
 
-  /* Keep the existing UI, but correct its stale rebirth numbers without a heavy
-     permanent DOM observer. The observer disconnects as soon as a rebirth modal
-     has been seen/updated. */
-  let timer = 0;
   function refresh() {
-    clearTimeout(timer);
-    timer = setTimeout(() => {
-      try { patchRebirthText(document); } catch (_) {}
-    }, 0);
+    const body = document.getElementById('mBody');
+    if (body) patchRebirthText(body);
   }
-  const observer = new MutationObserver(refresh);
-  observer.observe(document.documentElement, { childList: true, subtree: true });
-  refresh();
+
+  const modalBody = document.getElementById('mBody');
+  if (modalBody) {
+    new MutationObserver(refresh).observe(modalBody, { childList: true, subtree: true });
+    refresh();
+  }
 })();
