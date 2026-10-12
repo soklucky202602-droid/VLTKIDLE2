@@ -1,0 +1,27 @@
+/* VLTKIDLE UI migration — Nhân vật */
+#t-char{color:var(--v-text)}
+#t-char h3{color:var(--v-gold);font-size:14px;font-weight:600;letter-spacing:.2px;border-bottom:1px solid var(--v-line);padding-bottom:6px;margin:10px 0 7px}
+#t-char .card{background:linear-gradient(180deg,#1c2723,#17211e);border:1px solid var(--v-line);box-shadow:inset 0 1px 0 #ffffff08}
+#t-char .eqgrid{gap:7px}
+#t-char .slot{background:radial-gradient(circle,#202d28 0,#101713 72%);border:1px solid var(--v-line2);box-shadow:inset 0 0 12px #0008;min-height:58px}
+#t-char .slot:empty::after{content:"+";font-size:18px;color:#56665d}
+#t-char .attr{min-height:32px;padding:4px 6px;border-bottom:1px solid #26342f}
+#t-char .attr:last-child{border-bottom:0}
+#t-char .attr b{color:var(--v-gold);font-size:13px}
+#t-char .attr .plus{border-color:var(--v-gold2);background:linear-gradient(#34483f,#1d2924);color:var(--v-gold);box-shadow:0 1px 0 #0008}
+#t-char .stats{padding:4px 6px}
+#t-char .stats span:nth-child(even){color:var(--v-gold);font-weight:600}
+#t-char .slotlist{gap:6px}
+#t-char .slotrow{background:#111914;border-color:var(--v-line);border-radius:6px;min-height:60px}
+#t-char .slotrow:hover{border-color:var(--v-gold2)}
+#t-char .slotrow small{color:var(--v-dim)}
+#t-char .facpick button{background:#121b17;border-color:var(--v-line);transition:.15s}
+#t-char .facpick button:hover,#t-char .facpick button.on{border-color:var(--v-gold);box-shadow:inset 3px 0 0 var(--v-gold),0 0 8px #e6c67a18}
+#t-char .facpick b{color:var(--v-gold)}
+#t-char .btnrow{border-top:1px solid var(--v-line);padding-top:8px}
+#t-char .btnrow .btn{min-height:34px}
+@media(max-width:430px){
+  #t-char .eqgrid{grid-template-columns:repeat(4,1fr);gap:5px}
+  #t-char .attr{grid-template-columns:1fr auto 48px;gap:5px}
+  #t-char .slotrow{grid-template-columns:40px 1fr auto auto;padding:6px}
+}
