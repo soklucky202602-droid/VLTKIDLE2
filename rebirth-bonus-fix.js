@@ -139,12 +139,7 @@
     if (refreshRebirthText() && observer) observer.disconnect();
   };
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', run, { once: true });
-  } else {
-    run();
-  }
-
   observer = new MutationObserver(run);
   observer.observe(document.documentElement, { childList: true, subtree: true });
+  run();
 })();
