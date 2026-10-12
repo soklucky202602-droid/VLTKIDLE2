@@ -1,0 +1,39 @@
+name: Patch Wudang mana shield
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch mana shield cap
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('app.js')
+          s = p.read_text(encoding='utf-8')
+          old = 'C(G(n,"manashield_p"),0,90)'
+          new = 'C(G(n,"manashield_p"),0,99)'
+          if old not in s:
+              raise SystemExit('Expected mana shield cap not found')
+          if s.count(old) != 1:
+              raise SystemExit(f'Expected exactly 1 mana shield cap, found {s.count(old)}')
+          s = s.replace(old, new, 1)
+          p.write_text(s, encoding='utf-8')
+          PY
+          node --check app.js
+      - name: Verify
+        run: |
+          grep -F 'C(G(n,"manashield_p"),0,99)' app.js
+      - name: Commit and remove temporary workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/patch-wudang-mana.yml
+          git add app.js
+          git commit -m "fix: allow Wudang mana shield to reach 99%"
+          git push
