@@ -33,30 +33,39 @@
   try{zD=doRebirth}catch(_){} try{window.zD=doRebirth}catch(_){}
 
   function patchModal(){
-    const body=document.getElementById('mBody'); if(!body||!/chuyển sinh/i.test(body.textContent||''))return;
+    const body=document.getElementById('mBody'); if(!body||!/chuyển sinh/i.test(body.textContent||''))return false;
     const n=count(), next=n+1, req=required(next);
     const walker=document.createTreeWalker(body,NodeFilter.SHOW_TEXT), nodes=[];
     while(walker.nextNode())nodes.push(walker.currentNode);
     nodes.forEach(node=>{
       const old=node.nodeValue||''; if(!old.trim())return;
-      if(/chuyển sinh/i.test(old)&&/\d+\s*\/\s*\d+\s*lần/i.test(old)){
-        node.nodeValue=old.replace(/\d+\s*\/\s*\d+\s*lần/i,`${n}/${MAX} lần`); return;
-      }
-      if(/^\s*đạt cấp\s*\d+\s*:/i.test(old)){
-        node.nodeValue=`Đạt cấp ${req}: về cấp 1, giữ nguyên trang bị và toàn bộ võ công. Mỗi lần chuyển sinh tăng yêu cầu thêm 20 cấp.`; return;
-      }
-      if(/đã chuyển sinh/i.test(old)||/kháng tất cả|độ khó: quái/i.test(old)){
-        node.nodeValue=`Đã chuyển sinh: ${n}/${MAX} lần · hiện +${n*20}% kinh nghiệm, +${n*10}% sát thương.`; return;
-      }
+      let neu=null;
+      if(/chuyển sinh/i.test(old)&&/\d+\s*\/\s*\d+\s*lần/i.test(old)) neu=old.replace(/\d+\s*\/\s*\d+\s*lần/i,`${n}/${MAX} lần`);
+      else if(/^\s*đạt cấp\s*\d+\s*:/i.test(old)) neu=`Đạt cấp ${req}: về cấp 1, giữ nguyên trang bị và toàn bộ võ công. Mỗi lần chuyển sinh tăng yêu cầu thêm 20 cấp.`;
+      else if(/đã chuyển sinh/i.test(old)||/kháng tất cả|độ khó: quái/i.test(old)) neu=`Đã chuyển sinh: ${n}/${MAX} lần · hiện +${n*20}% kinh nghiệm, +${n*10}% sát thương.`;
+      if(neu!==null && neu!==old) node.nodeValue=neu;
     });
     body.querySelectorAll('button').forEach(btn=>{
       const text=(btn.textContent||'').trim();
       if(!/^(cần cấp\s*\d+|đã đạt tối đa)/i.test(text))return;
-      btn.textContent=next>MAX?'Đã đạt tối đa CS50':`Cần cấp ${req}`;
-      btn.disabled=next>MAX||level()<req;
-      btn.onclick=btn.disabled?null:doRebirth;
+      const label=next>MAX?'Đã đạt tối đa CS50':`Cần cấp ${req}`;
+      if(text!==label)btn.textContent=label;
+      const disabled=next>MAX||level()<req;
+      if(btn.disabled!==disabled)btn.disabled=disabled;
+      if(btn._vltkRebirth!==doRebirth){btn._vltkRebirth=doRebirth;btn.onclick=disabled?null:doRebirth}
     });
+    return true;
   }
-  function start(){const body=document.getElementById('mBody');if(!body)return;let busy=false;const ob=new MutationObserver(()=>{if(busy)return;busy=true;requestAnimationFrame(()=>{busy=false;patchModal()})});ob.observe(body,{childList:true,subtree:true,characterData:true});patchModal()}
+  function start(){
+    const body=document.getElementById('mBody');if(!body)return;
+    let scheduled=false;
+    const ob=new MutationObserver(()=>{
+      if(scheduled)return;
+      scheduled=true;
+      requestAnimationFrame(()=>{scheduled=false;patchModal()});
+    });
+    ob.observe(body,{childList:true,subtree:true});
+    patchModal();
+  }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
