@@ -34,14 +34,20 @@ jobs:
                   raise SystemExit('p0 marker not found')
               s = s.replace(marker, loader + marker, 1)
 
-          # Make every server RPC refresh ADMV settings before the RPC executes.
+          # Refresh settings before every server action, with a 5-second cache in the loader.
           s = s.replace(
               'p0=async s=>{if(window.MAINT)throw new Error("Máy chủ đang bảo trì");',
               'p0=async s=>{await loadServerSettings();if(window.MAINT)throw new Error("Máy chủ đang bảo trì");',
               1
           )
 
-          # Keep the gameplay multipliers in the actual reward formulas.
+          # If the Supabase client already exists, refresh settings before returning it.
+          s = s.replace(
+              'return k.sb?Promise.resolve(k.sb):u0()?',
+              'return k.sb?(loadServerSettings().then(()=>k.sb)):u0()?',
+              1
+          )
+
           reps = [
               ('Math.random()<du*a*Os(A)*e?1:0', 'Math.random()<Math.min(1,du*a*Os(A)*e*(SVR.drop||1))?1:0'),
               ('Math.random()<(il[A.cls]??il.normal)*a*Os(A)*(A.bonusDrop||1)', 'Math.random()<Math.min(1,(il[A.cls]??il.normal)*a*Os(A)*(A.bonusDrop||1)*(SVR.drop||1))'),
@@ -66,5 +72,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add app.js
           git diff --cached --quiet && echo "No changes needed" && exit 0
-          git commit -m "fix: make ADMV settings load reliably"
+          git commit -m "fix: refresh ADMV settings before server actions"
           git push
