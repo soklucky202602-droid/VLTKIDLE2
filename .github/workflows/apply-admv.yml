@@ -25,36 +25,19 @@ jobs:
           s=s.replace('$s("shard",A)*Ue("shard")*t)','$s("shard",A)*Ue("shard")*t*(SVR.drop||1)*(c.tower?3:1))',1)
           if s.count('SVR.drop||1')<2: raise SystemExit('drop multiplier missing')
 
-          # Tower spawn must never clear a live wave. Only spawn again when
-          # every current tower enemy is already dead/removed.
-          patterns=[
-            r'(LD=function\(\)\{.*?)(c\.enemies=\[\])',
-            r'(towerSpawn=function\(\)\{.*?)(R\.enemies=\[\])',
-          ]
-          patched=False
-          for pat in patterns:
-            def repl(m):
-              nonlocal patched
-              body=m.group(1)
-              reset=m.group(2)
-              if 'enemies.some' in body[-500:]:
-                return m.group(0)
-              patched=True
-              if 'c.enemies' in reset:
-                guard='if(c.enemies.some(e=>e&&e.hp>0))return;'
-              else:
-                guard='if(R.enemies.some(e=>e&&e.hp>0))return;'
-              return body+guard+reset
-            s,n=re.subn(pat,repl,s,count=1,flags=re.S)
-            if n:
-              break
-          if not patched:
-            raise SystemExit('tower spawn function/reset not found')
+          # Do not reset a tower wave while any enemy in that wave is alive.
+          guard='if(c.tower&&c.enemies.some(e=>e&&e.hp>0))return;'
+          s,n=re.subn(r'(LD=function\(\)\{)(?:(?!c\.enemies=\[\]).)*?)(c\.enemies=\[\])',r'\1'+guard+r'\2\3',s,count=1,flags=re.S)
+          if n!=1:
+            # Alternate readable tower-spawn implementation.
+            guard2='if(R.tower&&R.enemies.some(e=>e&&e.hp>0))return;'
+            s,n=re.subn(r'(towerSpawn=function\(\)\{)(?:(?!R\.enemies=\[\]).)*?)(R\.enemies=\[\])',r'\1'+guard2+r'\2\3',s,count=1,flags=re.S)
+          if n!=1: raise SystemExit('tower spawn reset not found')
 
           p.write_text(s,encoding='utf-8')
           ip=Path('index.html')
           h=ip.read_text(encoding='utf-8')
-          h=re.sub(r'app\.js\?v=\d+','app.js?v=558',h,count=1)
+          h=re.sub(r'app\.js\?v=\d+','app.js?v=559',h,count=1)
           ip.write_text(h,encoding='utf-8')
           PY
           node --check app.js
