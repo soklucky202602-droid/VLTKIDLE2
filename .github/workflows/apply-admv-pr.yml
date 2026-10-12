@@ -1,0 +1,40 @@
+name: Patch ADMV multipliers
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+      - name: Patch app.js
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('app.js'); s=p.read_text(encoding='utf-8')
+          if 'loadServerSettings=async()=>{' not in s:
+              marker='p0=async s=>'
+              insert='''SVR={exp:1,gold:1,drop:1,maintenance:!1,last:0},loadServerSettings=async()=>{try{const A=await l3(),{data:n,error:t}=await A.from("game_settings").select("key,value");if(t)throw t;const e={exp:1,gold:1,drop:1,maintenance:!1};for(const r of n||[]){const l=r&&r.value||{},d=typeof l.value==="number"?l.value:parseFloat(l.value);r.key==="exp_multiplier"&&Number.isFinite(d)&&(e.exp=Math.max(.01,d));r.key==="gold_multiplier"&&Number.isFinite(d)&&(e.gold=Math.max(.01,d));r.key==="drop_multiplier"&&Number.isFinite(d)&&(e.drop=Math.max(.01,d));r.key==="maintenance"&&typeof l.enabled==="boolean"&&(e.maintenance=l.enabled)}SVR.exp=e.exp,SVR.gold=e.gold,SVR.drop=e.drop,SVR.maintenance=e.maintenance,SVR.last=Date.now(),window.MAINT=SVR.maintenance}catch{}return SVR},'''
+              s=s.replace(marker,insert+marker,1)
+          s=s.replace('Math.random()<du*a*Os(A)*e?1:0','Math.random()<Math.min(1,du*a*Os(A)*e*(SVR.drop||1))?1:0',1)
+          s=s.replace('Math.random()<(il[A.cls]??il.normal)*a*Os(A)*(A.bonusDrop||1)','Math.random()<Math.min(1,(il[A.cls]??il.normal)*a*Os(A)*(A.bonusDrop||1)*(SVR.drop||1))',1)
+          s=s.replace('c.tower?0:Math.round(Km(A)*J4().rew)','Math.round(Km(A)*J4().rew*(SVR.gold||1))',1)
+          s=s.replace('A*Vt*(1+(o.tanthuXp&&!(v0()>0)?+o.tanthuXp:0))','A*Vt*(SVR.exp||1)*(1+(o.tanthuXp&&!(v0()>0)?+o.tanthuXp:0))',1)
+          if not all(x in s for x in ('SVR.exp||1','SVR.gold||1','SVR.drop||1','loadServerSettings=async()=>{')): raise SystemExit('patch incomplete')
+          p.write_text(s,encoding='utf-8')
+          PY
+          node --check app.js
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app.js
+          git diff --cached --quiet && exit 0
+          git commit -m "fix: apply ADMV multipliers to normal and tower combat"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
