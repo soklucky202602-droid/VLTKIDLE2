@@ -6,6 +6,7 @@
 
   const PREFIX = 'jx-idle-v1:';
   const seen = Object.create(null);
+  const KEY_RE = /^jxidle(?:_\d+)?$/;
 
   function hash(str) {
     let n = 3735928559, t = 1103547991;
@@ -30,8 +31,7 @@
       const outer = JSON.parse(value);
       if (!outer || typeof outer.d !== 'string' || typeof outer.h !== 'string') return null;
       const state = JSON.parse(outer.d);
-      if (hash(outer.d) !== outer.h) return null;
-      return state;
+      return hash(outer.d) === outer.h ? state : null;
     } catch (_) { return null; }
   }
 
@@ -39,7 +39,7 @@
     try {
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (!key || !/^jxidle(?:_\d+)?$/.test(key)) continue;
+        if (!key || !KEY_RE.test(key)) continue;
         const state = parseSigned(localStorage.getItem(key));
         if (state && state.stat) seen[key] = Math.max(0, state.stat.reborn | 0);
       }
@@ -51,7 +51,8 @@
   const nativeSetItem = Storage.prototype.setItem;
   Storage.prototype.setItem = function (key, value) {
     try {
-      if (/^jxidle(?:_\d+)?$/.test(String(key))) {
+      key = String(key);
+      if (KEY_RE.test(key)) {
         const state = parseSigned(String(value));
         if (state && state.stat) {
           const before = seen[key];
@@ -60,7 +61,7 @@
             state.attrPts = 20 * reborn + Math.max(0, state.bonusAtp | 0);
             state.skPts = 5 * reborn + Math.max(0, state.bonusSkp | 0);
             value = signState(state);
-            const slot = key === 'jxidle' ? '0' : key.slice('jxidle_'.length);
+            const slot = key === 'jxidle' ? '0' : key.slice(7);
             seen['cloud:' + slot] = Math.max(0, reborn - 1);
           }
           seen[key] = reborn;
@@ -78,11 +79,11 @@
       if (method === 'POST' && /\/rest\/v1\/saves(?:\?|$)/.test(url)) {
         let body = init && init.body;
         if (typeof body === 'string') {
-          let rows = JSON.parse(body);
+          const rows = JSON.parse(body);
           const list = Array.isArray(rows) ? rows : [rows];
           for (const row of list) {
             if (!row || typeof row.data !== 'string') continue;
-            let cloud = null;
+            let cloud;
             try { cloud = JSON.parse(row.data); } catch (_) { continue; }
             if (!cloud || cloud.v !== 2 || typeof cloud.d !== 'string') continue;
             const state = parseSigned(cloud.d);
@@ -107,35 +108,43 @@
     return nativeFetch.call(this, input, init);
   };
 
-  // Keep the rebirth description/toast aligned with the new cumulative reward.
   function refreshRebirthText() {
+    let changed = false;
     try {
-      const root = document.body;
-      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-      const nodes = [];
-      while (walker.nextNode()) nodes.push(walker.currentNode);
-      for (const node of nodes) {
+      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      while (walker.nextNode()) {
+        const node = walker.currentNode;
         const text = node.nodeValue || '';
         if (text.includes('nhận cố định') && text.includes('5 điểm tiềm năng + 1 điểm kỹ năng')) {
           node.nodeValue = text.replace(
             /nhận cố định\s*5 điểm tiềm năng \+ 1 điểm kỹ năng/,
             'mỗi lần +20 điểm tiềm năng + 5 điểm kỹ năng (CS1: 20/5 · CS2: 40/10 · … · CS10: 200/50)'
           );
+          changed = true;
         }
         if (text.includes('nhận 5 tiềm năng + 1 điểm kỹ năng')) {
           node.nodeValue = text.replace(
             /nhận 5 tiềm năng \+ 1 điểm kỹ năng/,
             'nhận điểm chuyển sinh theo cấp CS: 20 tiềm năng + 5 kỹ năng mỗi lần'
           );
+          changed = true;
         }
       }
     } catch (_) {}
+    return changed;
   }
 
+  let observer;
+  const run = () => {
+    if (refreshRebirthText() && observer) observer.disconnect();
+  };
+
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', refreshRebirthText, { once: true });
+    document.addEventListener('DOMContentLoaded', run, { once: true });
   } else {
-    refreshRebirthText();
+    run();
   }
-  new MutationObserver(refreshRebirthText).observe(document.documentElement, { childList: true, subtree: true });
+
+  observer = new MutationObserver(run);
+  observer.observe(document.documentElement, { childList: true, subtree: true });
 })();
