@@ -41,9 +41,10 @@
     }
   };
 
-  if (window.supabase && window.supabase.createClient) {
+  function patchSupabase() {
+    if (!window.supabase || !window.supabase.createClient || window.supabase.createClient.__rememberPatched) return false;
     var originalCreate = window.supabase.createClient;
-    window.supabase.createClient = function (url, key, options) {
+    var wrapped = function (url, key, options) {
       options = options || {};
       var auth = Object.assign({}, options.auth || {}, {
         persistSession: true,
@@ -53,7 +54,28 @@
       });
       return originalCreate.call(this, url, key, Object.assign({}, options, { auth: auth }));
     };
+    wrapped.__rememberPatched = true;
+    window.supabase.createClient = wrapped;
+    return true;
   }
+
+  // app.js loads Supabase lazily, so catch the library when its script is added.
+  var nativeAppend = document.head.appendChild.bind(document.head);
+  document.head.appendChild = function (node) {
+    try {
+      if (node && node.tagName === 'SCRIPT' && /supabase\.js/i.test(node.src || '')) {
+        var oldLoad = node.onload;
+        node.onload = function (e) {
+          patchSupabase();
+          if (typeof oldLoad === 'function') return oldLoad.call(this, e);
+        };
+      }
+    } catch (_) {}
+    var result = nativeAppend(node);
+    patchSupabase();
+    return result;
+  };
+  patchSupabase();
 
   function addRememberBox() {
     var password = document.getElementById('naP');
