@@ -17,40 +17,41 @@ jobs:
           import re
           p=Path('app.js')
           s=p.read_text(encoding='utf-8')
-          s=s.replace('*(SVR.drop||1)*(c.tower?3:1)','')
-          s=s.replace('*(SVR.drop||1)','')
-          new='da=()=>((1+(typeof u2==="function"?u2("drop"):0))*(1+.1*v0())*(1+Math.min(100,Math.max(0,c.P?c.P.lucky:0))*.005))*(SVR.drop||1)*(c.tower?3:1)'
-          s,n=re.subn(r'da=\(\)=>.*?(?=,il=)',new,s,count=1,flags=re.S)
-          if n!=1: raise SystemExit('da not found')
-          s=s.replace('$s("shard",A)*Ue("shard")*t)','$s("shard",A)*Ue("shard")*t*(SVR.drop||1)*(c.tower?3:1))',1)
-          if s.count('SVR.drop||1')<2: raise SystemExit('drop multiplier missing')
 
           # Reference Tower progression: 2000 floors, uncapped monster level,
           # 3.5% HP growth per floor, and 60% of HP growth for damage.
           start=s.find('LD=function(){')
-          if start < 0: raise SystemExit('LD function not found')
-          old='n=Wd(A)'
-          if old not in s[start:start+1200]: raise SystemExit('tower level expression not found')
-          s=s[:start]+s[start:].replace(old,'n=8+Math.round(A*1.8)',1)
-          old='i=rP(A)'
-          if old not in s[start:start+1400]: raise SystemExit('tower multiplier expression not found')
-          s=s[:start]+s[start:].replace(old,'i={hp:1+A*.035,dmg:1+(A*.035)*.6}',1)
+          if start < 0:
+              raise SystemExit('LD function not found')
+          end=s.find('};', start)
+          if end < 0:
+              raise SystemExit('LD function end not found')
+          tower=s[start:end]
+          if 'n=Wd(A)' not in tower:
+              raise SystemExit('tower level expression not found')
+          if 'i=rP(A)' not in tower:
+              raise SystemExit('tower multiplier expression not found')
+          tower=tower.replace('n=Wd(A)','n=8+Math.round(A*1.8)',1)
+          tower=tower.replace('i=rP(A)','i={hp:1+A*.035,dmg:1+(A*.035)*.6}',1)
 
           # Never reset a live tower wave from LD().
-          start=s.find('LD=function(){')
-          reset=s.find('c.enemies=[]',start)
-          if reset < 0: raise SystemExit('tower enemy reset not found')
-          guard='if(c.tower&&c.enemies.some(e=>e&&e.hp>0))return;'
-          if guard not in s[max(start,reset-200):reset]:
-            s=s[:reset]+guard+s[reset:]
+          if 'if(c.tower&&c.enemies.some(e=>e&&e.hp>0))return;' not in tower:
+              reset=tower.find('c.enemies=[]')
+              if reset < 0:
+                  raise SystemExit('tower enemy reset not found')
+              tower=tower[:reset]+'if(c.tower&&c.enemies.some(e=>e&&e.hp>0))return;'+tower[reset:]
+          s=s[:start]+tower+s[end:]
 
           # Do not silently exit the tower from the anti-stall branch.
-          pat=r'(c\.stallHp=null,)(qa\(!1\);return)'
-          s,n=re.subn(pat,r'\1return',s,count=1)
-          if n!=1:
-            pat=r'(c\.stallHp=null;)(qa\(!1\);return)'
-            s,n=re.subn(pat,r'\1return',s,count=1)
-          if n!=1: raise SystemExit('tower stall exit branch not found')
+          old_count=s.count('c.stallHp=null,qa(!1);return')
+          if old_count:
+              s=s.replace('c.stallHp=null,qa(!1);return','c.stallHp=null;return',1)
+          else:
+              old_count=s.count('c.stallHp=null;qa(!1);return')
+              if old_count:
+                  s=s.replace('c.stallHp=null;qa(!1);return','c.stallHp=null;return',1)
+              else:
+                  raise SystemExit('tower stall exit branch not found')
 
           p.write_text(s,encoding='utf-8')
           ip=Path('index.html')
@@ -64,10 +65,15 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           s=Path('app.js').read_text(encoding='utf-8')
-          if 'n=8+Math.round(A*1.8)' not in s: raise SystemExit('unlimited tower level formula missing')
-          if 'i={hp:1+A*.035,dmg:1+(A*.035)*.6}' not in s: raise SystemExit('tower scaling formula missing')
-          if 'if(c.tower&&c.enemies.some(e=>e&&e.hp>0))return;' not in s: raise SystemExit('tower reset guard missing')
-          if 'c.stallHp=null,qa(!1);return' in s or 'c.stallHp=null;qa(!1);return' in s: raise SystemExit('tower stall exit still present')
+          checks={
+            'unlimited tower level formula':'n=8+Math.round(A*1.8)',
+            'tower scaling formula':'i={hp:1+A*.035,dmg:1+(A*.035)*.6}',
+            'tower reset guard':'if(c.tower&&c.enemies.some(e=>e&&e.hp>0))return;',
+          }
+          for name,needle in checks.items():
+              if needle not in s: raise SystemExit(name+' missing')
+          if 'c.stallHp=null,qa(!1);return' in s or 'c.stallHp=null;qa(!1);return' in s:
+              raise SystemExit('tower stall exit still present')
           print('Tower progression OK')
           PY
       - name: Commit patch
@@ -76,5 +82,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add app.js index.html
           git diff --cached --quiet && echo "No changes needed" && exit 0
-          git commit -m "feat: rebuild tower progression to 2000 floors"
+          git commit -m "feat: apply 2000-floor tower progression"
           git push
