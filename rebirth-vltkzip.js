@@ -23,7 +23,6 @@
     return BASE_LEVEL + (next - 1) * STEP;
   }
 
-  /* Zip source: +20% XP and +10% damage per rebirth. */
   try {
     mi = function () {
       const n = rebornCount();
@@ -31,10 +30,8 @@
     };
   } catch (_) {}
 
-  /* Zip source has no rebirth monster scaling. */
   try { R5 = function () { return { hp: 1, dmg: 1 }; }; } catch (_) {}
 
-  /* Zip source does not add rebirth count to equipment level requirements. */
   try {
     OA = function () {
       try { return typeof o !== 'undefined' && o ? o.lvl : 1; } catch (_) { return 1; }
@@ -76,7 +73,6 @@
         o.wave = 1;
         o.push = true;
         o.tpPend = (o.tpPend | 0) + 1;
-        /* Equipment and all learned skills are intentionally untouched. */
       }
 
       if (typeof c !== 'undefined' && c) {
@@ -104,35 +100,71 @@
   try { zD = doRebirthZip; } catch (_) {}
   try { window.zD = doRebirthZip; } catch (_) {}
 
-  /* Only watch the modal body; avoid scanning the whole game DOM on every mutation. */
-  function patchRebirthText(root) {
-    if (!root || !root.querySelectorAll) return;
-    const nodes = root.querySelectorAll('*');
-    for (const el of nodes) {
-      if (!el || el.children.length) continue;
+  function setLeafText(el, text) {
+    if (!el || el.children.length) return;
+    if ((el.textContent || '') !== text) el.textContent = text;
+  }
+
+  function patchRebirthModal() {
+    const body = document.getElementById('mBody');
+    if (!body || !/chuyển sinh/i.test(body.textContent || '')) return;
+
+    const next = rebornCount() + 1;
+    const req = requiredLevel(next);
+    const level = (() => {
+      try { return Math.max(1, (typeof o !== 'undefined' && o && o.lvl) | 0); } catch (_) { return 1; }
+    })();
+
+    const walker = document.createTreeWalker(body, NodeFilter.SHOW_ELEMENT);
+    const leaves = [];
+    while (walker.nextNode()) {
+      const el = walker.currentNode;
+      if (!el.children.length) leaves.push(el);
+    }
+
+    for (const el of leaves) {
       const text = (el.textContent || '').trim();
-      if (!/chuyển sinh/i.test(text)) continue;
+      if (!text) continue;
 
-      let out = text
-        .replace(/tối đa\s*10\s*lần/gi, 'tối đa 50 lần')
-        .replace(/tối đa\s*10/gi, 'tối đa 50')
-        .replace(/cấp\s*200/gi, 'cấp 120')
-        .replace(/level\s*200/gi, 'cấp 120');
+      if (/^\d+\/\d+\s*lần$/i.test(text)) {
+        setLeafText(el, `${rebornCount()}/${MAX} lần`);
+        continue;
+      }
 
-      const next = rebornCount() + 1;
-      if (next <= MAX) out = out.replace(/cấp\s*\d+/i, `cấp ${requiredLevel(next)}`);
-      if (out !== text) el.textContent = out;
+      if (/^cần cấp\s*\d+$/i.test(text)) {
+        setLeafText(el, next > MAX ? 'Đã đạt tối đa CS50' : `Cần cấp ${req}`);
+        if (next <= MAX) {
+          const disabled = level < req;
+          if ('disabled' in el) el.disabled = disabled;
+          el.classList.toggle('disabled', disabled);
+          el.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+          el.onclick = disabled ? null : doRebirthZip;
+        }
+        continue;
+      }
+
+      if (/^đã chuyển sinh\s*\d+ lần/i.test(text)) {
+        setLeafText(el,
+          `Đã chuyển sinh ${rebornCount()} lần · hiện +${rebornCount() * 20}% kinh nghiệm, +${rebornCount() * 10}% sát thương.`
+        );
+        continue;
+      }
+
+      if (/^đạt cấp\s*\d+:/i.test(text)) {
+        setLeafText(el,
+          `Đạt cấp ${req}: về cấp 1, giữ trang bị và toàn bộ võ công; nhận ${next * 50} điểm tiềm năng + 1 điểm Tâm pháp; thưởng vĩnh viễn +${next * 20}% kinh nghiệm, +${next * 10}% sát thương.`
+        );
+      }
     }
   }
 
   function refresh() {
-    const body = document.getElementById('mBody');
-    if (body) patchRebirthText(body);
+    try { patchRebirthModal(); } catch (_) {}
   }
 
   const modalBody = document.getElementById('mBody');
   if (modalBody) {
-    new MutationObserver(refresh).observe(modalBody, { childList: true, subtree: true });
+    new MutationObserver(refresh).observe(modalBody, { childList: true, subtree: true, characterData: true });
     refresh();
   }
 })();
