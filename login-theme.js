@@ -26,20 +26,12 @@
     buildCleanForm(root);
   }
   function buildCleanForm(root){
-    /* Strip the old login box visually, but keep the original DOM nodes/events. */
     root.classList.add('vltk-login-clean-root');
-    var oldTitle=null, all=root.querySelectorAll('*');
-    for(var i=0;i<all.length;i++){
-      var el=all[i], t=textOf(el).replace(/\s+/g,' ').trim();
-      if(t==='xác nhận tên tài khoản'||t==='xac nhan ten tai khoan'){oldTitle=el;break;}
-    }
-    if(oldTitle)oldTitle.classList.add('vltk-login-extra-hidden');
-
-    var textInputs=[], checks=[], buttons=[], anchors=[];
+    var textInputs=[], checks=[], buttons=[], anchors=[], hidden=[];
     var inputs=root.querySelectorAll('input');
     for(var j=0;j<inputs.length;j++){
       var input=inputs[j];
-      if(input.type==='hidden')continue;
+      if(input.type==='hidden'){hidden.push(input);continue;}
       if(input.type==='checkbox'||input.type==='radio')checks.push(input);
       else if(input.type!=='submit'&&input.type!=='button')textInputs.push(input);
       else buttons.push(input);
@@ -47,9 +39,10 @@
     var btns=root.querySelectorAll('button');
     for(var b=0;b<btns.length;b++)buttons.push(btns[b]);
     var as=root.querySelectorAll('a');
-    for(var a=0;a<as.length;a++)anchors.push(as[a]);
+    for(var a=0;a<as.length;a++)if(as[a].textContent.trim())anchors.push(as[a]);
 
     var form=document.createElement('div');form.className='vltk-clean-form';
+    for(var h=0;h<hidden.length;h++)form.appendChild(hidden[h]);
     for(var k=0;k<textInputs.length;k++){
       var inp=textInputs[k], field=document.createElement('div');field.className='vltk-field';
       var label=document.createElement('label');
@@ -62,12 +55,8 @@
       var opts=document.createElement('div');opts.className='vltk-clean-options';
       for(var c=0;c<checks.length;c++){
         var wrap=document.createElement('label');wrap.className='vltk-check';
-        var txt=checks[c].parentElement?String(checks[c].parentElement.textContent||'').trim():'';
-        if(/hiện|mat|mật|show|remember|nhớ|tai khoan|tài khoản/i.test(txt)){
-          var clean=txt.replace(/^(✓|☑|□|☐)\s*/,'').trim();
-          if(clean)wrap.appendChild(document.createTextNode(clean));
-        }
-        wrap.insertBefore(checks[c],wrap.firstChild);if(!wrap.textContent.trim())wrap.appendChild(document.createTextNode(c?'Nhớ tài khoản':'Hiện mật khẩu'));
+        wrap.appendChild(checks[c]);
+        wrap.appendChild(document.createTextNode(c?'Nhớ tài khoản':'Hiện mật khẩu'));
         opts.appendChild(wrap);
       }
       form.appendChild(opts);
@@ -79,7 +68,6 @@
         actions.appendChild(buttons[q]);
       }
       for(var r=0;r<anchors.length;r++){
-        if(!anchors[r].textContent.trim())continue;
         anchors[r].classList.add('vltk-secondary');actions.appendChild(anchors[r]);
       }
       form.appendChild(actions);
