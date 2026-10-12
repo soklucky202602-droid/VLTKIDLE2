@@ -4,7 +4,6 @@
   var KEY='vltkidle2-loot-filter';
   var defaults={minLines:1,element:true};
   var state=load();
-  var originalGA=null;
 
   function load(){
     try{
@@ -42,24 +41,28 @@
     return 0;
   }
 
-  /* Exact rule already defined for a Mộc weapon. Do not invent the other four tables. */
-  var MOC={
-    armor:2, amulet:2,
-    belt:0, ring2:0,
-    cuff:4, pendant:4,
-    boot:3, ring1:3
+  /* Full five-element table supplied for the 8 filtered equipment positions.
+   * Codes: 0=Kim, 1=Mộc, 2=Thủy, 3=Hỏa, 4=Thổ.
+   * Each pair uses the same element.
+   */
+  var NGU_HANH={
+    0:{armor:4,amulet:4,belt:3,ring2:3,cuff:1,pendant:1,boot:2,ring1:2},
+    1:{armor:2,amulet:2,belt:0,ring2:0,cuff:4,pendant:4,boot:3,ring1:3},
+    2:{armor:0,amulet:0,belt:4,ring2:4,cuff:3,pendant:3,boot:1,ring1:1},
+    3:{armor:1,amulet:1,belt:2,ring2:2,cuff:0,pendant:0,boot:4,ring1:4},
+    4:{armor:3,amulet:3,belt:1,ring2:1,cuff:2,pendant:2,boot:0,ring1:0}
   };
 
   function expectedSeries(slot,w){
-    if(w!==1)return null;
-    return Object.prototype.hasOwnProperty.call(MOC,slot)?MOC[slot]:null;
+    var row=NGU_HANH[Number(w)];
+    return row&&Object.prototype.hasOwnProperty.call(row,slot)?row[slot]:null;
   }
 
   function twoCriteria(A){
     if(!A)return false;
     if(typeof window.W0==='function'&&window.W0(A))return true;
 
-    /* Only equipment uses the attribute-line criterion. Other drops stay untouched. */
+    /* Only the 8 equipment positions use both criteria. Other drops stay untouched. */
     var slot=itemSlot(A);
     var mapped=slot==='armor'||slot==='amulet'||slot==='belt'||slot==='cuff'||slot==='pendant'||slot==='boot';
     if(slot==='ring'){
@@ -72,16 +75,14 @@
     if(lineCount(A)<state.minLines)return false;
 
     if(state.element){
-      var w=weaponSeries();
-      var want=expectedSeries(slot,w);
+      var want=expectedSeries(slot,weaponSeries());
       if(want!==null && Number(A.s)!==want)return false;
     }
     return true;
   }
 
   function installFilter(){
-    if(typeof window.gA!=='function'||originalGA)return;
-    originalGA=window.gA;
+    if(typeof window.gA!=='function')return;
     window.gA=function(A){return twoCriteria(A);};
   }
 
@@ -95,7 +96,7 @@
     box.innerHTML='<div class="vltk-lf2-title">LỌC ĐỒ TỰ ĐỘNG <span>2 TIÊU CHÍ</span></div>'+
       '<div class="vltk-lf2-row"><label>Số dòng thuộc tính</label><select id="vltkLfLines"></select></div>'+
       '<div class="vltk-lf2-row"><label class="vltk-lf2-check"><input id="vltkLfElement" type="checkbox"> Ngũ hành theo vũ khí đang cầm</label></div>'+
-      '<div class="vltk-lf2-note">8 vị trí: Áo · Dây chuyền · Thắt lưng · Nhẫn · Bao tay · Ngọc bội · Giày. Đồ ngoài 8 vị trí vẫn nhặt bình thường.</div>';
+      '<div class="vltk-lf2-note">8 vị trí: Áo · Dây chuyền · Thắt lưng · Nhẫn dưới · Bao tay · Ngọc bội · Giày · Nhẫn trên. Đồ ngoài 8 vị trí vẫn nhặt bình thường.</div>';
     host.prepend(box);
     var sel=box.querySelector('#vltkLfLines');
     for(var i=1;i<=6;i++){
