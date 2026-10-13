@@ -3,7 +3,7 @@
 'use strict';
 var KEY='vltkidle2-loot-filter',state=load();
 function load(){try{var x=JSON.parse(localStorage.getItem(KEY)||'null');if(x&&typeof x==='object')return{minLines:Math.max(1,Math.min(6,+x.minLines||1)),element:x.element!==false}}catch(e){}return{minLines:1,element:true}}
-function save(){try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){}}
 function slotOf(a){try{var s=typeof window.pA==='function'?window.pA(a&&a.d):'';return s?String(s):''}catch(e){return''}}
 function ringOf(a){try{return typeof window.jA==='function'?String(window.jA(a)||''):''}catch(e){return''}}
 function eqSlot(a){var s=slotOf(a);if(s==='ring'){var r=ringOf(a);if(r==='ring1'||r==='ring2')s=r}return s}
